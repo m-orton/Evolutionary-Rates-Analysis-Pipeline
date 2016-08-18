@@ -163,7 +163,7 @@ library(plotly)
 #by the user and will determine the taxa, geographic region, etc.
 
 dfInitial <- read_tsv(
-  "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Homo&geo=all&format=tsv")
+  "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Aves&geo=all&format=tsv")
 
 #If you want to run pre downloaded BOLD TSV's to avoid downloading of the same tsv multiple times, 
 #this will let you choose a path to that TSV and parse
