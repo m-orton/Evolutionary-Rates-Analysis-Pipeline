@@ -1,6 +1,8 @@
 #################
-#Authored by Matthew Orton
-#Minor edits by Winfield Ly and David Lee
+#Authored primarily by Matthew Orton
+#Contribution by Jacqueline May for lines 220-246 of script 
+#Contributions by David Lee for lines 1148-1169, editing and formatting of script
+#Contributions by Winfield Ly for editing and formatting of script
 
 #Pipeline Purpose:
 
@@ -120,10 +122,6 @@
 
 #mapLayout will allow for customization of the world map for map plotting using Plotly
 
-#all "Check" variables (ex: gapCheck) are good to check since these will tell you how many entries
-#are being filtered out, for instance gapCheck will tell you how many sequences are being filtered because 
-#of gap content
-
 #################
 #Packages required
 #Note that once you have installed the packages (first time running the script), 
@@ -165,28 +163,29 @@ library(plotly)
 #by the user and will determine the taxa, geographic region, etc.
 #ex: taxon=Aves$geo=all
 
-#Note that in rare instances, some entries in a particular taxa will give parsing errors in reading the TSV, 
-#this may have to do with not all entries being in correct tsv format
-
+#read_tsv has been modified to select only certain columns to save on downloading time 
 dfInitial <- read_tsv(
-  "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Aves&geo=all&format=tsv")
+  "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Aves&geo=all&format=tsv")[ ,
+                                                      c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
+                                                        'class_name','order_taxID','order_name','family_taxID','family_name',
+                                                        'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
+                                                        'species_taxID','species_name','lat','lon','nucleotides')]
 
 #If you want to run pre downloaded BOLD TSV's to avoid downloading of the same tsv multiple times, 
 #this will let you choose a path to that TSV and parse:
 
 #tsvParseDoc <- file.choose()
-#dfInitial <- read_tsv(tsvParseDoc)
+#dfInitial <- read_tsv(tsvParseDoc)[ ,
+#                          c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
+#                          'class_name','order_taxID','order_name','family_taxID','family_name',
+#                          'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
+#                          'species_taxID','species_name','lat','lon','nucleotides')]
 
 #***Keep in mind you can also save your R workspace to avoid redownloading TSV's***
 
 ##############
 #Dataframe Filtering and Reorganization
 
-#Filtering this df according to the relevant columns we need
-dfInitial <- (dfInitial[,c("recordID","bin_uri","phylum_taxID","phylum_name","class_taxID",
-                           "class_name","order_taxID","order_name","family_taxID","family_name",
-                           "subfamily_taxID","subfamily_name","genus_taxID","genus_name",
-                           "species_taxID","species_name","lat","lon","nucleotides")])
 colnames(dfInitial)[1] <- "record_id"
 
 #Removing sequences with no latitude values, filtering according to lat since we only really 
@@ -216,29 +215,33 @@ dfInitial <- dfInitial[containNucleotides,]
 #Gap content and N content will affect the Clustal Omega alignment and the alignment will give warning messages
 #so we need to filter out sequences with high gap and N content
 
-#This will give the number of positions where an N is present
-containN <- gregexpr( "[N]", dfInitial$nucleotides)
-#We then go through each sequence and see if the number of N's is greater than 1% of
-#total sequence length 
-#(0.01 can easily modified to add more or less stringency or this section can be commented out 
-#as well if you want to retain high N content however this may interfere with the downstream alignment)
-containN <- foreach(i=1:nrow(dfInitial)) %do% 
-  which((containN[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
-nCheck <- sapply( containN , function (x) length( x ) )
-nCheck <- which(nCheck>0)
-#Subset out these higher N content sequences
-dfInitial <- dfInitial[-nCheck,]
-
-#Same filtering of over 1% with gaps, decided to separate N content and gap content so they can be modified individually
-containGap <- gregexpr( "[-]", dfInitial$nucleotides)
-#We then go through each sequence and see if the number of gaps is greater than 1% of
-#total sequence length 
-containGap <- foreach(i=1:nrow(dfInitial)) %do% 
-  which((containGap[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
-gapCheck <- sapply( containGap , function (x) length( x ) )
-gapCheck <- which(gapCheck>0)
-#Subset out these higher gap content sequences
-dfInitial <- dfInitial[-gapCheck,]
+# First, we need to convert nucleotides to chr type.
+dfInitial$nucleotides <- with(dfInitial, (as.character(nucleotides))) 
+# Cut off starting Ns and gaps (large portions of Ns and gaps at the start of a sequence).
+# Might merge this with "end_N_gap" in future if I can figure it out...might reduce computation time!
+start_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("^[-N]", dfInitial$nucleotides)), length)
+start_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
+  if (start_N_gap[[i]] > 0) {
+    split <- strsplit(dfInitial$nucleotides[i], "^[-N]+")
+    dfInitial$nucleotides[i] <- split[[1]][2]
+  }
+# Cut off ending Ns and gaps (large portions of Ns and gaps at the end of a sequence).
+end_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]$", dfInitial$nucleotides)), length)
+end_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
+  if (end_N_gap[[i]] > 0) {
+    split <- strsplit(dfInitial$nucleotides[i], "[-N]+$")
+    dfInitial$nucleotides[i] <- split[[1]][1]
+  }
+# This will give the number of positions where an *internal* N or gap is found for each sequence.
+internal_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]", dfInitial$nucleotides)), length)
+# We then go loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
+# the total sequence length.
+internal_N_gap <- foreach(i=1:nrow(dfInitial)) %do% 
+  which((internal_N_gap[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
+N_gap_check <- sapply( internal_N_gap , function (x) length( x ) )
+N_gap_check <- which(N_gap_check>0)
+# Subset out these higher gap and N content sequences.
+dfInitial <- dfInitial[-N_gap_check,]
 
 #Filter out sequences less than 600 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment
 #and will often give warning messages in the alignment
@@ -279,7 +282,7 @@ medianLatAbs <- sapply( binList , function(x) median( x$latNumAbs ) )
 #median lat for mapping purposes only
 medianLatMap <- sapply( binList , function(x) median( x$latNum ) )
 
-#We also need a median longitude for each for map plotting
+#We also need a median longitude for map plotting
 medianLon <- sapply( binList , function(x) median( x$lonNum ) )
 
 #we can also take a few other important pieces of data regarding each bin using sapply 
@@ -353,7 +356,7 @@ if(length(largeBin) >0){
   #Transfer:hhalign/hhalignment-C.h:2968: profile has no leading and/or trailing residues (h=-1:t=0:#=1)
   #Those messages simply indicates a particular sequence being aligned that 
   #is flanked by gaps hence "no leading or trailing residues"
-  #Run a multiple sequence alignment on each element of the dnaStringSet1
+  #Run a multiple sequence alignment on each element of the dnaStringSet1 list
   alignment1 <- foreach(i=1:binNumberCentroid) %do% msaClustalOmega(dnaStringSet1[[i]])
   
   #We can then convert each alignment to DNAbin format
@@ -389,6 +392,9 @@ if(length(largeBin) >0){
   colnames(dfAllSeq)[18] <- "nucleotides"
   #Adding an index column to reference later with Match overall dataframe
   dfAllSeq$ind <- row.names(dfAllSeq)
+  #Deleting any possible duplicate entries
+  dfAllSeq <- (by(dfAllSeq, dfAllSeq["bin_uri"], head, n=1))
+  dfAllSeq <- Reduce(rbind, dfAllSeq)
   
 } else {
   #Else if there are no bins with more than one member than we would simply merge latlon with initial 
@@ -414,6 +420,7 @@ rm(dfLatLon)
 #This will give a table of the counts of how many bin members belong to each order
 #orders that exceed this limit are broken down to families while those which do not are analyzed at the order level
 orderSizes <- table(unlist(dfAllSeq$order_name))
+dfOrderSize <- as.data.frame(orderSizes)
 #Which orders are above the 2000 bin mark
 orderSizeCheck <- which(orderSizes>2000)
 
@@ -471,7 +478,7 @@ if(length(orderSizeCheck)>0){
   #do the same with dfLargeOrder but with families
   taxaListFamily <- lapply(unique(dfLargeOrder$family_taxID), function(x) dfLargeOrder[dfLargeOrder$family_taxID == x,])
   
-  #Find orders with less than 3 members and remove them since these cant generate any pairings
+  #Find families with less than 3 members and remove them since these cant generate any pairings
   recordIdNum2 <- sapply( taxaListFamily , function(x) length( x$record_id ) )
   smallFamily <- which(recordIdNum2<3)
   taxaListFamily <- taxaListFamily[-smallFamily]
@@ -505,51 +512,51 @@ if(length(orderSizeCheck)>0){
   #Else if there are no orders larger than 2000 bp, will simply automate by order entirely
   } else {
   
-  #For the automation process, will simply use the first sequence from each order as a placeholder reference sequence 
-  dfRefSeq <- by(dfAllSeq, dfAllSeq["order_name"], head, n=1)
-  dfRefSeq <- Reduce(rbind, dfRefSeq)
-  dfRefSeq <- (dfRefSeq[,c("order_name","nucleotides")])
-  
-  #To manually input reference sequences, uncomment this code where the name and sequences would be put in quotations separated by commas
-  #in the dataframe below:
-  #dfRefSeq <- data.frame(taxa = c(""),
-  #                       nucleotides = c(""))
-  #colnames(dfRefSeq)[2] <- "nucleotides"
-  #dfRefSeq$nucleotides <- as.character(dfRefSeq$nucleotides)
-  
-  #Subset dfAllSeq by entries in the reference sequence dataframe
-  dfAllSeq <- subset(dfAllSeq, dfAllSeq$order_name %in% dfRefSeq$order_name)
-  
-  #Break dfAllSeq down into the various families/Orders, could be edited for orders instead
-  taxaListComplete <- lapply(unique(dfAllSeq$order_taxID), function(x) dfAllSeq[dfAllSeq$order_taxID == x,])
-  
-  #Find orders with less than 3 members and remove them since these cant generate any pairings
-  recordIdNum <- sapply( taxaListComplete , function(x) length( x$record_id ) )
-  smallOrder <- which(recordIdNum<3)
-  if(length(smallOrder)>0){
-    taxaListComplete <- taxaListComplete[-smallOrder]
-  }
-  
-  #Revise dfRefSeq dataframe to reflect this
-  orderList <- sapply( taxaListComplete , function(x) unique( x$order_name ) )
-  #This command will ensure the reference sequence dataframe is in the same order as the allseq dataframe
-  dfRefSeq <- dfRefSeq[match(orderList, dfRefSeq$order_name),]
-  
-  #Extract sequences and bin_uri from each family
-  orderBin <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
-  orderSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
-  orderSequencesNames <- orderBin
-  
-  #Take our reference sequences
-  alignmentRef <- as.character(dfRefSeq$nucleotides)
-  dfRefSeq$reference <- "reference"
-  #Name our reference as reference for each family so it can be identified as such in the alignment
-  alignmentRefNames <- dfRefSeq$reference
-  
-  #Merge our reference sequences with each of our family sequences
-  alignmentSequencesPlusRef <- mapply(c, orderSequences, alignmentRef)
-  #Merge the names together
-  alignmentNames <- mapply(c, orderSequencesNames, alignmentRefNames)
+    #For the automation process, will simply use the first sequence from each order as a placeholder reference sequence 
+    dfRefSeq <- by(dfAllSeq, dfAllSeq["order_name"], head, n=1)
+    dfRefSeq <- Reduce(rbind, dfRefSeq)
+    dfRefSeq <- (dfRefSeq[,c("order_name","nucleotides")])
+    
+    #To manually input reference sequences, uncomment this code where the name and sequences would be put in quotations separated by commas
+    #in the dataframe below:
+    #dfRefSeq <- data.frame(taxa = c(""),
+    #                       nucleotides = c(""))
+    #colnames(dfRefSeq)[2] <- "nucleotides"
+    #dfRefSeq$nucleotides <- as.character(dfRefSeq$nucleotides)
+    
+    #Subset dfAllSeq by entries in the reference sequence dataframe
+    dfAllSeq <- subset(dfAllSeq, dfAllSeq$order_name %in% dfRefSeq$order_name)
+    
+    #Break dfAllSeq down into the various families/Orders, could be edited for orders instead
+    taxaListComplete <- lapply(unique(dfAllSeq$order_taxID), function(x) dfAllSeq[dfAllSeq$order_taxID == x,])
+    
+    #Find orders with less than 3 members and remove them since these cant generate any pairings
+    recordIdNum <- sapply( taxaListComplete , function(x) length( x$record_id ) )
+    smallOrder <- which(recordIdNum<3)
+    if(length(smallOrder)>0){
+      taxaListComplete <- taxaListComplete[-smallOrder]
+    }
+    
+    #Revise dfRefSeq dataframe to reflect this
+    orderList <- sapply( taxaListComplete , function(x) unique( x$order_name ) )
+    #This command will ensure the reference sequence dataframe is in the same order as the allseq dataframe
+    dfRefSeq <- dfRefSeq[match(orderList, dfRefSeq$order_name),]
+    
+    #Extract sequences and bin_uri from each family
+    orderBin <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
+    orderSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
+    orderSequencesNames <- orderBin
+    
+    #Take our reference sequences
+    alignmentRef <- as.character(dfRefSeq$nucleotides)
+    dfRefSeq$reference <- "reference"
+    #Name our reference as reference for each family so it can be identified as such in the alignment
+    alignmentRefNames <- dfRefSeq$reference
+    
+    #Merge our reference sequences with each of our family sequences
+    alignmentSequencesPlusRef <- mapply(c, orderSequences, alignmentRef)
+    #Merge the names together
+    alignmentNames <- mapply(c, orderSequencesNames, alignmentRefNames)
 }
 
 #Converting all sequences in dfAllSeq plus reference to DNAStringSet format, this is 
@@ -649,7 +656,7 @@ pairingResultCandidates <- foreach(i=1:length(taxaListComplete)) %do%
 #Note that this will give warnings however these warnings are simply to indicate that some indexes are repeated, 
 #which would be expected here since bins will be repeated at this step
 pairingResultCandidates <- foreach(i=1:length(taxaListComplete)) %do% 
-  merge(pairingResultCandidates[[i]], taxaListComplete[[i]], by.x = "ind", by.y = "bin_uri")
+  suppressWarnings(merge(pairingResultCandidates[[i]], taxaListComplete[[i]], by.x = "ind", by.y = "bin_uri"))
 
 #make all candidates into one dataframe
 dfPairingResultsL1L2 <- do.call("rbind", pairingResultCandidates)
@@ -706,7 +713,7 @@ dfPairingResultsL1L2 <- (dfPairingResultsL1L2[,c("inGroupPairing","record_id","b
 #order by ingroupdistance between pairings
 dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupDist),]
 
-#Dividing Pairing Candidates into two lineages
+#Dividing Pairing Candidates into two lineages:
 
 #First lineage, this is done by picking even numbered rows of pairing results dataframe: 2,4,6...
 dfPairingResultsL1 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2==0,]
@@ -832,7 +839,7 @@ dfGeneticDistanceStack <- do.call(rbind, geneticDistanceStackList)
 
 #Then we can search for outgroupings relative to lineage 1
 #We can use the bin_uri's to subset the dfGeneticDistanceStackList according to 
-#bin_uris represented in lineage 1, this will be called dfBestOutGroupL1
+#bin_uris represented in lineage 1, this will be called dfOutGroupL1
 #This will essentially limit our outgroup distances to those associated with lineage1
 dfOutGroupL1 <- subset(dfGeneticDistanceStack, dfGeneticDistanceStack$ind %in% 
                          dfPairingResultsL1$bin_uri)
@@ -942,7 +949,7 @@ noOutGroupCheck <- setdiff(dfPairingResultsL1$bin_uri, dfOutGroupL1$associatedIn
 noOutGroupCheck <- foreach(i=1:length(noOutGroupCheck)) %do% which(dfPairingResultsL1$bin_uri == noOutGroupCheck[[i]])
 noOutGroupCheck <- unlist(noOutGroupCheck)
 
-#If there is at least one pairing without an outgroup then subset pairing dataframes by that pairing(s)
+#If there is at least one pairing without an outgroup then subset pairing dataframes by those pairings
 if(length(noOutGroupCheck)>0){
   #subsetting Lineage 1 by this outgroup check
   dfPairingResultsL1 <- dfPairingResultsL1[-noOutGroupCheck,]
@@ -1256,6 +1263,9 @@ dfPairingResultsSummary <- dfPairingResultsSummary[order(dfPairingResultsSummary
 dfRelativeDist <- merge(dfRelativeDist, dfPairingResultsL1, by.x = "variable", by.y = "inGroupPairing")
 dfRelativeDist <- (dfRelativeDist[,c("variable","value","sign","order_name.x")])
 
+orderSizes <- table(unlist(dfPairingResultsSummary$inGroupOrder))
+dfOrderSize <- as.data.frame(orderSizes)
+
 ##################
 #PseudoReplicate Relative Outgroup Distance Averaging 
 
@@ -1275,6 +1285,27 @@ if(nrow(dfPseudoRep)>0){
   dfPseudoRep$relativeDist1 <- round(dfPseudoRep$relativeDist1, 4)
   dfPseudoRep$relativeDist2 <- round(dfPseudoRep$relativeDist2, 4)
   
+  #Now subtracting 1 from positive values and adding one to negative values for averaging 
+  #This is to address an issue where averages of pairings differing in sign were producing decimal results
+  #RelativeDist1:
+  foreach(i=1:nrow(dfPseudoRep)) %do% 
+    if(dfPseudoRep$relativeDist1[i]>0){
+      dfPseudoRep$relativeDist1[i] <- dfPseudoRep$relativeDist1[i] - 1
+    }
+  foreach(i=1:nrow(dfPseudoRep)) %do% 
+    if(dfPseudoRep$relativeDist1[i]<0){
+      dfPseudoRep$relativeDist1[i] <- dfPseudoRep$relativeDist1[i] + 1
+    }
+  #RelativeDist2
+  foreach(i=1:nrow(dfPseudoRep)) %do% 
+    if(dfPseudoRep$relativeDist2[i]>0){
+      dfPseudoRep$relativeDist2[i] <- dfPseudoRep$relativeDist2[i] - 1
+    }
+  foreach(i=1:nrow(dfPseudoRep)) %do% 
+    if(dfPseudoRep$relativeDist2[i]<0){
+      dfPseudoRep$relativeDist2[i] <- dfPseudoRep$relativeDist2[i] + 1
+    }
+  
   #breaking pseudoreplicates down to a list
   pseudoRepList <- lapply(unique(dfPseudoRep$inGroupPairing), 
                           function(x) dfPseudoRep[dfPseudoRep$inGroupPairing == x,])
@@ -1291,7 +1322,7 @@ if(nrow(dfPseudoRep)>0){
   pseudoRepRelativeDist1Names <- sapply( pseudoRepRelativeDist1Names , function (x) unique( x ) )
   #append these distances together for averaging using map
   #map will append to a list format
-  pseudoRepAllRelativeDist = Map(c, pseudoRepRelativeDist1, pseudoRepRelativeDist2)
+  pseudoRepAllRelativeDist = suppressWarnings(Map(c, pseudoRepRelativeDist2, pseudoRepRelativeDist1))
   pseudoRepAllRelativeDistNames = Map(c, pseudoRepRelativeDist2Names, pseudoRepRelativeDist1Names)
   
   #Now we can finally average the relative distances based on the values in the pseudoRepAllRelativeDist list
@@ -1299,6 +1330,16 @@ if(nrow(dfPseudoRep)>0){
   
   #Making another dataframe with the averages for the pseudoreplicates called dfPseudoRepAverage
   dfPseudoRepAverage <- data.frame(pseudoRepAverage)
+  
+  #Now subtracting 1 if negative or adding 1 if positive to averages
+  foreach(i=1:nrow(dfPseudoRepAverage)) %do% 
+    if(dfPseudoRepAverage$pseudoRepAverage[i]<0){
+      dfPseudoRepAverage$pseudoRepAverage[i] <- dfPseudoRepAverage$pseudoRepAverage[i] - 1
+    }
+  foreach(i=1:nrow(dfPseudoRepAverage)) %do% 
+    if(dfPseudoRepAverage$pseudoRepAverage[i]>0){
+      dfPseudoRepAverage$pseudoRepAverage[i] <- dfPseudoRepAverage$pseudoRepAverage[i] + 1
+    }
   
   #Adding another column for the pairings associated with each average
   dfPseudoRepAverage$variable <- pseudoRepAllRelativeDistNames
@@ -1428,17 +1469,14 @@ pvalWilcoxonTitle <- foreach(i=1:length(pvalBinomialOrder)) %do%
 #Plot of signed relative distance per pairing using ggplot:
 
 #Separate plots will be generated for each order 
-#Using suppress warnings because negative integer values were presenting a warning message
-#even though they are valid values
 
 foreach(i=1:length(relativeDistOrder)) %do%  
-          suppressWarnings(print(ggplot(relativeDistOrder[[i]], aes(x = variable, y = value, fill = sign))
-          + geom_bar(stat="identity", width = 0.5) 
-          + scale_fill_manual(values = c("positive" = "blue",
-                                         "negative" = "red"))
-          + theme(text = element_text(size=13), axis.text.x = element_text(face="bold",angle=90, vjust=1))
-          + ggtitle(paste0(orderTitle[i],"\n", pValBinomialTitle[i], "\n", pvalWilcoxonTitle[i])) 
-          + labs(x="Pairing Number", y="Signed Relative OutGroup Distance")))
+  (print(ggplot(relativeDistOrder[[i]], aes(x = variable, y = value, color = sign))
+      + geom_point(stat="identity", size = 2.5) 
+      + theme(text = element_text(size=13), axis.text.x = element_text(face="bold",angle=90, vjust=1))
+      + ggtitle(paste0(orderTitle[i],"\n", pValBinomialTitle[i], "\n", pvalWilcoxonTitle[i])) 
+      + labs(x="Pairing Number", y="Signed Relative OutGroup Distance", color = "sign")))
+
 
 #Click on zoom icon in the bottom right hand corner to see plot more clearly
 
@@ -1506,6 +1544,8 @@ mapTitle <- paste("Map of Latitude Separated Sister Pairings for", classConcaten
 
 #this command will show a map organized by the pairing number with each pairing number having its
 #own distinctive color on a spectrum of purple (shortest distance) to red (longest distance)
+#map can become crowded with large numbers of pairings so individual maps may need to be manually created
+#for each order
 plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = hover,
         color = as.ordered(inGroupPairing), colors = "Spectral", mode = "markers+lines", type = 'scattergeo') %>%
         layout(title = paste0(mapTitle) , geo = mapLayout)
