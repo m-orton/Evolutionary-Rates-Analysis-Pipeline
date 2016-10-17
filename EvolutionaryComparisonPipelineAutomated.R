@@ -165,7 +165,7 @@ library(plotly)
 
 #read_tsv has been modified to select only certain columns to save on downloading time 
 dfInitial <- read_tsv(
-  "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Aves&geo=all&format=tsv")[ ,
+  "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Annelida&geo=all&format=tsv")[ ,
                                                                                              c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
                                                                                                'class_name','order_taxID','order_name','family_taxID','family_name',
                                                                                                'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
@@ -511,7 +511,7 @@ if(length(orderSizeCheck)>0){
   #Else if there are no orders larger than 2000 bp, will simply automate by order entirely
   } else {
     
-    #For the automation process, will simply use the first sequence from each order as a placeholder reference sequence 
+    #For the automation process, will simply use the first sequence from each order as a placeholder reference sequence with sequence length restrictions
     dfAllSeq$seqLength <- nchar(dfAllSeq$nucleotides)
     seqLength <- which(dfAllSeq$seqLength < 670)
     dfAllSeq2 <- dfAllSeq[seqLength,]
@@ -664,14 +664,19 @@ pairingResultCandidates3 <- foreach(i=1:length(taxaListComplete)) %do%
 dfPairingResultsL1L2 <- do.call(rbind, Map(data.frame, pairingResultCandidates2, pairingResultCandidates3))
 #Creating a key that can be used to uniquely identify each pairing based on its ingroup distance and its precise position in its respective pairwise distance matrix
 #This is to avoid an issue where bins meeting the the 0.15 criteria were being incorrectly paired together because of duplicated ingroupdistance values
-dfPairingResultsL1L2$pairingKey <- pi * (dfPairingResultsL1L2$values + dfPairingResultsL1L2$row + dfPairingResultsL1L2$col)
+#Also settings number of significant digits to longer so values are more likely to be unique
+options(digits = 10)
+dfPairingResultsL1L2$pairingKey <- dfPairingResultsL1L2$values * (dfPairingResultsL1L2$row + dfPairingResultsL1L2$col)
 
 #combine AllSeq with pairingResultCandidates to get all relevant taxonomic and latitudinal data
-dfPairingResultsL1L2 <- merge(dfPairingResultsL1L2, dfAllSeq, by.x = "ind", by.y = "bin_uri")
+dfPairingResultsL1L2 <- suppressWarnings(merge(dfPairingResultsL1L2, dfAllSeq, by.x = "ind", by.y = "bin_uri"))
 
 #change number of significant digits of the ingroupdistance to avoid ordering problems with ingroup distance
 #order by pairingKey so all pairings are ordered correctly
 dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey),]
+
+#Changing significant digits back
+options(digits =5)
 #get rid of zero ingroupdistance entries
 zeroDistance <- which(dfPairingResultsL1L2$values == 0)
 if(length(zeroDistance)>0){
@@ -988,6 +993,10 @@ dfOutGroupL1 <- dfOutGroupL1[order(match(dfOutGroupL1[,3],
 dfOutGroupL2 <- dfOutGroupL2[order(match(dfOutGroupL2[,3],
                                          dfPairingResultsL2[,3])),]
 
+#Adding an additional column for the delta lat difference of each pairing
+latDelta <- foreach(i=1:nrow(dfPairingResultsL1)) %do% 
+  abs(dfPairingResultsL1$medianLatAbs[i] - dfPairingResultsL2$medianLatAbs[i])
+
 #Finally merge outgroups to both L1, L2 and L1L2 dataframes
 #Using the data tables package for this for reliable merging
 #Making these dataframes data tables
@@ -1000,6 +1009,7 @@ setkey(dfPairingResultsL1, inGroupPairing)
 dfPairingResultsL1 <- merge(dfPairingResultsL1, dfOutGroupL1, by.x = "inGroupPairing", 
                             by.y = "inGroupPairing")
 dfPairingResultsL1 <- data.frame(dfPairingResultsL1)
+dfPairingResultsL1$latDelta <- latDelta
 
 #L2, same process
 dfPairingResultsL2 <- data.table(dfPairingResultsL2)
@@ -1010,10 +1020,11 @@ setkey(dfPairingResultsL2, inGroupPairing)
 dfPairingResultsL2 <- merge(dfPairingResultsL2, dfOutGroupL2, by.x = "inGroupPairing", 
                             by.y = "inGroupPairing")
 dfPairingResultsL2 <- data.frame(dfPairingResultsL2)
+dfPairingResultsL2$latDelta <- latDelta
 
 #Now some dataframe reorganization and ordering
 dfPairingResultsL1 <- (dfPairingResultsL1[,c("inGroupPairing","associatedInGroupBin","inGroupDist","inGroupDistx1.3",
-                                             "medianLatAbs.x","latMin.x","latMax.x","record_id.x",
+                                             "medianLatAbs.x","latDelta","latMin.x","latMax.x","record_id.x",
                                              "binSize.x","phylum_taxID.x","phylum_name.x","class_taxID.x",
                                              "class_name.x","order_taxID.x","order_name.x","family_taxID.x",
                                              "family_name.x","subfamily_taxID.x","subfamily_name.x",
@@ -1030,7 +1041,7 @@ dfPairingResultsL1 <- dfPairingResultsL1[order(dfPairingResultsL1$inGroupPairing
 
 #L2
 dfPairingResultsL2 <- (dfPairingResultsL2[,c("inGroupPairing","associatedInGroupBin","inGroupDist","inGroupDistx1.3",
-                                             "medianLatAbs.x","latMin.x","latMax.x","record_id.x",
+                                             "medianLatAbs.x","latDelta","latMin.x","latMax.x","record_id.x",
                                              "binSize.x","phylum_taxID.x","phylum_name.x","class_taxID.x",
                                              "class_name.x","order_taxID.x","order_name.x","family_taxID.x",
                                              "family_name.x","subfamily_taxID.x","subfamily_name.x",
@@ -1247,23 +1258,23 @@ dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupP
 #Also creating another dataframe called pairing results summary which will give a quick idea of pairing results
 #and make the results easier to read, this will include relative outgroup distance
 dfPairingResultsSummary <- (dfPairingResultsL1L2[,c("inGroupPairing","relativeOutGroupDist","inGroupBin","inGroupDist","inGroupDistx1.3",
-                                                    "outGroupDistance","outGroupBin","medianLatAbs.x","latMin.x",
+                                                    "outGroupDistance","outGroupBin","medianLatAbs.x","latDelta","latMin.x",
                                                     "latMax.x","order_name.x","family_name.x","genus_name.x",
                                                     "species_name.x","trimmedNucleotides.x","order_name.y","family_name.y",
                                                     "genus_name.y","species_name.y","trimmedNucleotides.y")])
 colnames(dfPairingResultsSummary)[8] <- "inGroupMedianLatAbs"
-colnames(dfPairingResultsSummary)[9] <- "inGroupMinLat"
-colnames(dfPairingResultsSummary)[10] <- "inGroupMaxLat"
-colnames(dfPairingResultsSummary)[11] <- "inGroupOrder"
-colnames(dfPairingResultsSummary)[12] <- "inGroupFamily"
-colnames(dfPairingResultsSummary)[13] <- "inGroupGenus"
-colnames(dfPairingResultsSummary)[14] <- "inGroupSpecies"
-colnames(dfPairingResultsSummary)[15] <- "inGroupNucleotides"
-colnames(dfPairingResultsSummary)[16] <- "outGroupOrder"
-colnames(dfPairingResultsSummary)[17] <- "outGroupFamily"
-colnames(dfPairingResultsSummary)[18] <- "outGroupGenus"
-colnames(dfPairingResultsSummary)[19] <- "outGroupSpecies"
-colnames(dfPairingResultsSummary)[20] <- "outGroupNucleotides"
+colnames(dfPairingResultsSummary)[10] <- "inGroupMinLat"
+colnames(dfPairingResultsSummary)[11] <- "inGroupMaxLat"
+colnames(dfPairingResultsSummary)[12] <- "inGroupOrder"
+colnames(dfPairingResultsSummary)[13] <- "inGroupFamily"
+colnames(dfPairingResultsSummary)[14] <- "inGroupGenus"
+colnames(dfPairingResultsSummary)[15] <- "inGroupSpecies"
+colnames(dfPairingResultsSummary)[16] <- "inGroupNucleotides"
+colnames(dfPairingResultsSummary)[17] <- "outGroupOrder"
+colnames(dfPairingResultsSummary)[18] <- "outGroupFamily"
+colnames(dfPairingResultsSummary)[19] <- "outGroupGenus"
+colnames(dfPairingResultsSummary)[20] <- "outGroupSpecies"
+colnames(dfPairingResultsSummary)[21] <- "outGroupNucleotides"
 #Reordering
 dfPairingResultsSummary <- dfPairingResultsSummary[order(dfPairingResultsSummary$inGroupPairing),]
 
