@@ -512,7 +512,12 @@ if(length(orderSizeCheck)>0){
   } else {
     
     #For the automation process, will simply use the first sequence from each order as a placeholder reference sequence 
-    dfRefSeq <- by(dfAllSeq, dfAllSeq["order_name"], head, n=1)
+    dfAllSeq$seqLength <- nchar(dfAllSeq$nucleotides)
+    seqLength <- which(dfAllSeq$seqLength < 670)
+    dfAllSeq2 <- dfAllSeq[seqLength,]
+    seqLength2 <- which(dfAllSeq2$seqLength > 650)
+    dfAllSeq2 <-dfAllSeq2[seqLength2,]
+    dfRefSeq <- by(dfAllSeq2, dfAllSeq2["order_name"], head, n=1)
     dfRefSeq <- Reduce(rbind, dfRefSeq)
     dfRefSeq <- (dfRefSeq[,c("order_name","nucleotides")])
     
@@ -623,6 +628,7 @@ matrixGeneticDistance <- foreach(i=1:length(taxaListComplete)) %do%
 
 #convert to dataframe
 geneticDistanceMatrixList <- foreach(i=1:length(taxaListComplete)) %do%  as.data.frame(matrixGeneticDistance[i])
+
 #Putting it into a stack (each column concatenated into one long column of indexes and values) 
 #so it can be easily subsetted
 geneticDistanceStackList <- foreach(i=1:length(taxaListComplete)) %do% stack(geneticDistanceMatrixList[[i]])
@@ -632,10 +638,10 @@ geneticDistanceStackList <- foreach(i=1:length(taxaListComplete)) %do% stack(gen
 #and dividing based on lineage
 
 #These values can easily be edited to add more or less stringency to the matches
-#Will produce lists with indexes of each match according to genetic distance criteria of 0.15
+#Will produce lists with indexes (bins, row and column names) of each match according to genetic distance criteria of 0.15
 pairingResultCandidates <- foreach(i=1:length(taxaListComplete)) %do% which(geneticDistanceMatrixList[[i]]<=0.15)
 
-#Next we can delete the family/orders that dont have any pairings
+#Next we can delete the orders that dont have any pairings
 pairingResultCheck <- foreach(i=1:length(taxaListComplete)) %do% which(length(pairingResultCandidates[[i]]) == 0)
 pairingResultCheck <- which(pairingResultCheck>0)
 #Subset taxalistcomplete, geneticDistance, pairingResultCandidate, dnaStringSet lists according to pairingResultCheck
@@ -648,19 +654,24 @@ if(length(pairingResultCheck>0)){
 }
 
 #Use these pairing results and reference against the genetic distance stack list to subset it
-pairingResultCandidates <- foreach(i=1:length(taxaListComplete)) %do% 
-  geneticDistanceStackList[[i]][c(pairingResultCandidates[[i]]), ]
+pairingResultCandidates2 <- foreach(i=1:length(taxaListComplete)) %do% 
+    geneticDistanceStackList[[i]][c(pairingResultCandidates[[i]]),]
+#
+pairingResultCandidates3 <- foreach(i=1:length(taxaListComplete)) %do%
+    data.table(which(geneticDistanceMatrixList[[i]]<=0.15, arr.ind = TRUE))
 
-#combine taxaListComplete with pairingresults to get all relevant taxonomic and latitudinal data
-#Note that this will give warnings however these warnings are simply to indicate that some indexes are repeated, 
-#which would be expected here since bins will be repeated at this step
-pairingResultCandidates <- foreach(i=1:length(taxaListComplete)) %do% 
-  suppressWarnings(merge(pairingResultCandidates[[i]], taxaListComplete[[i]], by.x = "ind", by.y = "bin_uri"))
+#Merge pairingResultCandidate list 2 and 3 together and combine into the pairing results dataframe
+dfPairingResultsL1L2 <- do.call(rbind, Map(data.frame, pairingResultCandidates2, pairingResultCandidates3))
+#Creating a key that can be used to uniquely identify each pairing based on its ingroup distance and its precise position in its respective pairwise distance matrix
+#This is to avoid an issue where bins meeting the the 0.15 criteria were being incorrectly paired together because of duplicated ingroupdistance values
+dfPairingResultsL1L2$pairingKey <- pi * (dfPairingResultsL1L2$values + dfPairingResultsL1L2$row + dfPairingResultsL1L2$col)
 
-#make all candidates into one dataframe
-dfPairingResultsL1L2 <- do.call("rbind", pairingResultCandidates)
-#order by ingroupdistance between pairings
-dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$values),]
+#combine AllSeq with pairingResultCandidates to get all relevant taxonomic and latitudinal data
+dfPairingResultsL1L2 <- merge(dfPairingResultsL1L2, dfAllSeq, by.x = "ind", by.y = "bin_uri")
+
+#change number of significant digits of the ingroupdistance to avoid ordering problems with ingroup distance
+#order by pairingKey so all pairings are ordered correctly
+dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey),]
 #get rid of zero ingroupdistance entries
 zeroDistance <- which(dfPairingResultsL1L2$values == 0)
 if(length(zeroDistance)>0){
@@ -698,6 +709,7 @@ alignment2TrimUnlist <- unlist(alignment2Trim)
 dfTrimmedSeq <- data.frame(alignment2TrimUnlist)
 dfTrimmedSeq$bin_uri <- names(alignment2TrimUnlist)
 colnames(dfTrimmedSeq)[1] <- "trimmedNucleotides"
+
 #merge sequences to dfPairingResultsL1L2
 dfPairingResultsL1L2 <- merge(dfPairingResultsL1L2, dfTrimmedSeq, 
                               by.x = "bin_uri", by.y = "bin_uri")
@@ -709,8 +721,8 @@ dfPairingResultsL1L2 <- (dfPairingResultsL1L2[,c("inGroupPairing","record_id","b
                                                  "family_name","subfamily_taxID","subfamily_name",
                                                  "genus_taxID","genus_name","species_taxID","species_name",
                                                  "trimmedNucleotides","indexNo","medianLon","index")])
-#order by ingroupdistance between pairings
-dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupDist),]
+#order by ingrouppairing between pairings
+dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupPairing),]
 
 #Dividing Pairing Candidates into two lineages:
 
