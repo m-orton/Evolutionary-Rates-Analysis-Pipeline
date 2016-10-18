@@ -656,13 +656,15 @@ if(length(pairingResultCheck>0)){
 #Use these pairing results and reference against the genetic distance stack list to subset it
 pairingResultCandidates2 <- foreach(i=1:length(taxaListComplete)) %do% 
     geneticDistanceStackList[[i]][c(pairingResultCandidates[[i]]),]
-#
+#this command will grab the precise row and column numbers of each pairing so they can be used to determine a unique identifier
+#for each pairing
 pairingResultCandidates3 <- foreach(i=1:length(taxaListComplete)) %do%
     data.table(which(geneticDistanceMatrixList[[i]]<=0.15, arr.ind = TRUE))
 
 #Merge pairingResultCandidate list 2 and 3 together and combine into the pairing results dataframe
 dfPairingResultsL1L2 <- do.call(rbind, Map(data.frame, pairingResultCandidates2, pairingResultCandidates3))
 #Creating a key that can be used to uniquely identify each pairing based on its ingroup distance and its precise position in its respective pairwise distance matrix
+#from the row and column number
 #This is to avoid an issue where bins meeting the the 0.15 criteria were being incorrectly paired together because of duplicated ingroupdistance values
 #Also settings number of significant digits to longer so values are more likely to be unique
 options(digits = 10)
@@ -671,7 +673,6 @@ dfPairingResultsL1L2$pairingKey <- dfPairingResultsL1L2$values * (dfPairingResul
 #combine AllSeq with pairingResultCandidates to get all relevant taxonomic and latitudinal data
 dfPairingResultsL1L2 <- suppressWarnings(merge(dfPairingResultsL1L2, dfAllSeq, by.x = "ind", by.y = "bin_uri"))
 
-#change number of significant digits of the ingroupdistance to avoid ordering problems with ingroup distance
 #order by pairingKey so all pairings are ordered correctly
 dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey),]
 
@@ -1021,6 +1022,21 @@ dfPairingResultsL2 <- merge(dfPairingResultsL2, dfOutGroupL2, by.x = "inGroupPai
                             by.y = "inGroupPairing")
 dfPairingResultsL2 <- data.frame(dfPairingResultsL2)
 dfPairingResultsL2$latDelta <- latDelta
+
+#Find pairings that where each lineage is equal in distance to the outgroup and remove these
+equalOutGroupDistCheck <- foreach(i=1:nrow(dfPairingResultsL1)) %do% 
+  (dfPairingResultsL1$outGroupDistance[i] - dfPairingResultsL2$outGroupDistance[i])
+equalOutGroupDistCheck <- which(equalOutGroupDistCheck == 0)
+#If there is at least one pairing with equal outgroup distance from both lineages
+if(length(equalOutGroupDistCheck)>0){
+  #subsetting Lineage 1 by this outgroup check
+  dfPairingResultsL1 <- dfPairingResultsL1[-equalOutGroupDistCheck,]
+  #Now subsetting Lineage 2 by this outgroup check
+  dfPairingResultsL2 <- dfPairingResultsL2[-equalOutGroupDistCheck,]
+}
+#Renumber pairing again
+dfPairingResultsL1$inGroupPairing <- seq.int(nrow(dfPairingResultsL1))
+dfPairingResultsL2$inGroupPairing <- seq.int(nrow(dfPairingResultsL2))
 
 #Now some dataframe reorganization and ordering
 dfPairingResultsL1 <- (dfPairingResultsL1[,c("inGroupPairing","associatedInGroupBin","inGroupDist","inGroupDistx1.3",
