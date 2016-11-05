@@ -5,7 +5,8 @@
 #Contributions by Winfield Ly for editing and formatting of script
 #Collaboration of Sarah Adamowicz (University of Guelph) in designing the analyses
 
-#Pipeline Purpose:
+
+#Pipeline Purpose (Class Level Analyses):
 
 #This pipeline will allow for the generation of latitudinally separated sister pairings and
 #associated outgroupings from nearly any taxa (provided they have a suitable reference sequence and are not too large)
@@ -18,11 +19,9 @@
 #generated for each order
 #A world map visualizing for each order of the latitude separated pairings can also be run using plotly
 
-#Larger taxa including various phyla and classes can be run and will get broken down into orders and the pairing analysis 
-#is performed at the order level by default. 
-#The exception to this is if an order is sufficiently large (over 2000 bins), it will be broken down into individual families
-#and the analysis will be performed at the family level for that particular order.
-#Smaller taxa (below the order level) can be run however the analysis will still be performed at the order level
+#Larger taxa including various phyla can be run and will get broken down into classes and the pairing analysis 
+#is performed at the class level by default. 
+#Smaller taxa (below the class level) can be run however the analysis will still be performed at the class level
 
 ##################
 #Some important tips:
@@ -71,7 +70,7 @@
 #################
 #Important dataframes:
 
-#dfPVal gives the p-values for both the binomial test and wilcoxon tests for all orders (that have pairings)
+#dfPVal gives the p-values for both the binomial test and wilcoxon tests for all classes (that have pairings)
 #and each order separately
 
 #dfPairingResultsSummary shows a more user friendly summation of the pairing results
@@ -108,7 +107,7 @@
 ##################
 #Important Variables
 
-#alignment2 will show the alignment of each order and family (if individual families are being run)
+#alignment2 will show the alignment of class
 #(ex: typing alignment2[1] will show the first alignment performed)
 #It is important to always check this variable to ensure the alignment is producing a 
 #reasonable result
@@ -167,10 +166,10 @@ library(plotly)
 #read_tsv has been modified to select only certain columns to save on downloading time 
 dfInitial <- read_tsv(
   "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Annelida&geo=all&format=tsv")[ ,
-                                                                                             c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
-                                                                                               'class_name','order_taxID','order_name','family_taxID','family_name',
-                                                                                               'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
-                                                                                               'species_taxID','species_name','lat','lon','nucleotides')]
+                                              c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
+                                                'class_name','order_taxID','order_name','family_taxID','family_name',
+                                                'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
+                                                'species_taxID','species_name','lat','lon','nucleotides')]
 
 #If you want to run pre downloaded BOLD TSV's to avoid downloading of the same tsv multiple times, 
 #this will let you choose a path to that TSV and parse:
@@ -243,10 +242,10 @@ N_gap_check <- which(N_gap_check>0)
 # Subset out these higher gap and N content sequences.
 dfInitial <- dfInitial[-N_gap_check,]
 
-#Filter out sequences less than 600 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment
-#and will often give warning messages in the alignment
+#Filter out sequences less than 620 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment
+#and this also helps to standardize sequence length for the reference sequences.
 sequenceLengths <- nchar(dfInitial$nucleotides)
-sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<600)
+sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<620)
 dfInitial <- dfInitial[-sequenceLengthCheck,]
 
 #Modifying Bin column slightly to remove "BIN:"
@@ -414,155 +413,47 @@ rm(dfBinList)
 rm(dfLatLon)
 
 #############
-#Multiple Sequence Alignment of Sequences with Reference Sequence and Beginning of Automation by Family/Order
+#Multiple Sequence Alignment of Sequences with Reference Sequence and Beginning of Automation by Class
 
-#Will use a threshold to determine whether to divide by order or family, setting at 2000 for now but can be modified
-#This will give a table of the counts of how many bin members belong to each order
-#orders that exceed this limit are broken down to families while those which do not are analyzed at the order level
-orderSizes <- table(unlist(dfAllSeq$order_name))
-dfOrderSize <- as.data.frame(orderSizes)
-#Which orders are above the 2000 bin mark
-orderSizeCheck <- which(orderSizes>2000)
+#Manual input of reference sequences into dfRefSeq dataframe
+dfRefSeq <- data.frame(taxa = c("Clitellata","Polychaeta"),
+                       nucleotides = c("AACTCTATACTTTATTTTAGGCGTCTGAGCAGGAATAGTGGGGGCTGGTATAAGACTCCTAATTCGAATTGAGCTAAGACAGCCGGGAGCATTTCTAGGAAGGGATCAACTCTATAACACTATTGTAACTGCTCACGCATTTGTAATAATTTTCTTTCTAGTAATACCTGTATTTATTGGGGGGTTCGGTAATTGACTTCTGCCTTTAATACTTGGAGCCCCTGACATGGCATTCCCACGTCTTAACAACATAAGATTTTGACTCCTTCCCCCATCACTAATCCTTCTAGTATCCTCTGCTGCAGTAGAAAAGGGTGCGGGAACTGGATGAACTGTTTATCCACCCCTAGCAAGAAACATTGCTCATGCCGGCCCATCTGTAGACTTAGCTATTTTTTCTCTTCATTTAGCAGGTGCTTCATCAATCTTGGGTGCCATTAATTTTATTACTACTGTTATTAATATACGATGAAGAGGCTTACGACTTGAACGAATCCCATTATTCGTTTGAGCCGTACTAATTACAGTGGTCCTTCTACTCTTATCCTTACCAGTATTAGCCGGTGCAATTACTATACTACTTACCGATCGAAATCTAAATACCTCCTTCTTTGACCCTGCTGGAGGTGGGGATCCAATCCTATATCAACACTTATTC",
+                                       "CACCCTCTATTTTATCTTCGGAGTCTGATCTGGTCTTCTAGGTACATCAATAAGGCTACTAATCCGAATTGAGCTTGGGCAACCCGGCTCTTTTTTAGGTAGAGACCAACTGTACAATACGGTTGTAACTGCACATGCTTTTCTTATAATTTTCTTTCTTGTCATACCCGTCTTTATTGGTGGGTTTGGAAACTGACTTGTCCCATTAATACTTGCTGCTCCAGACATGGCATTTCCCCGAATAAACAACATAAGTTTCTGACTTCTCCCTCCGGCCCTGATTCTTCTTCTGAGCTCCGCTGCAGTTGAAAAGGGCGTTGGTACAGGTTGAACAGTATACCCCCCCTTATCAAGAAACCTCGCACATGCGGGTCCATCTGTAGATTTGGCCATCTTTTCTCTCCACTTAGCCGGGATCTCATCTATTCTCGGAGCTATTAACTTTATTACTACCGTAATCAACATGCGGTCTAAAGGCCTTCGATTAGAACGAGTCCCTCTATTCGTGTGGGCAGTAAAGATTACTGCTATCCTTCTTCTTTTATCACTTCCTGTTTTAGCAGGAGCCATTACTATACTCCTAACTGACCGTAATTTAAACACCTCATTCTTCGATCCAGCAGGGGGAGGAGACCCCATTCTTTACCAACACCTCTTT"))
+colnames(dfRefSeq)[2] <- "nucleotides"
+dfRefSeq$nucleotides <- as.character(dfRefSeq$nucleotides)
 
-#If there is at least one order that is very large
-if(length(orderSizeCheck)>0){
-  
-  #Grab the names of these orders
-  largeOrderNames <- names(orderSizeCheck)
-  #Subset the AllSeq dataframe by these orders in a new dataframe
-  largeOrderEntries <- which(dfAllSeq$order_name == largeOrderNames)
-  dfLargeOrder <- dfAllSeq[largeOrderEntries,]
-  #Remove large orders from dfAllSeq
-  dfAllSeq <- dfAllSeq[-largeOrderEntries,]
-  
-  #Define reference sequences for the orders and families (this can be commented out once actual reference sequences are added)
-  #For the automation process, will simply use the first sequence from each family/order as a placeholder reference sequence
-  #Large orders get broken down into families so each family gets a reference
-  dfRefSeqLargeOrder <- by(dfLargeOrder, dfLargeOrder["family_name"], head, n=1)
-  dfRefSeqLargeOrder <- Reduce(rbind, dfRefSeqLargeOrder)
-  dfRefSeqLargeOrder <- (dfRefSeqLargeOrder[,c("family_name","nucleotides")])
-  colnames(dfRefSeqLargeOrder)[1] <- "taxa_name"
-  
-  #smaller orders simply take the first sequence of each order as their reference
-  dfRefSeqOrder <- by(dfAllSeq, dfAllSeq["order_name"], head, n=1)
-  dfRefSeqOrder <- Reduce(rbind, dfRefSeqOrder)
-  dfRefSeqOrder <- (dfRefSeqOrder[,c("order_name","nucleotides")])
-  colnames(dfRefSeqOrder)[1] <- "taxa_name"
-  
-  #To manually input reference sequences, uncomment this code where the name and sequences would be put in quotations separated by commas
-  #in the dataframe below:
-  #dfRefSeq <- data.frame(taxa = c(""),
-  #                       nucleotides = c(""))
-  #colnames(dfRefSeq)[2] <- "nucleotides"
-  #dfRefSeq$nucleotides <- as.character(dfRefSeq$nucleotides)
-  
-  #Subset dfAllSeq and dfLargeOrder by entries in the reference sequence dataframes
-  #this prevents entries which have no order or family designation from being used
-  dfAllSeq <- subset(dfAllSeq, dfAllSeq$order_name %in% dfRefSeqOrder$taxa_name)
-  dfLargeOrder <- subset(dfLargeOrder, dfLargeOrder$family_name %in% dfRefSeqLargeOrder$taxa_name)
-  
-  #Break dfAllSeq down into the various orders
-  taxaListOrder <- lapply(unique(dfAllSeq$order_taxID), function(x) dfAllSeq[dfAllSeq$order_taxID == x,])
-  
-  #Find orders with less than 3 members and remove them since these cant generate any pairings
-  recordIdNum <- sapply( taxaListOrder , function(x) length( x$record_id ) )
-  smallOrder <- which(recordIdNum<3)
-  taxaListOrder <- taxaListOrder[-smallOrder]
-  
-  #Revise dfRefSeqOrder dataframe to reflect this
-  orderList <- sapply( taxaListOrder , function(x) unique( x$order_name ) )
-  dfRefSeqOrder <- subset(dfRefSeqOrder, dfRefSeqOrder$taxa_name %in% orderList)
-  #Ordering by order list
-  dfRefSeqOrder <- dfRefSeqOrder[match(orderList, dfRefSeqOrder$taxa_name), ]
-  
-  #do the same with dfLargeOrder but with families
-  taxaListFamily <- lapply(unique(dfLargeOrder$family_taxID), function(x) dfLargeOrder[dfLargeOrder$family_taxID == x,])
-  
-  #Find families with less than 3 members and remove them since these cant generate any pairings
-  recordIdNum2 <- sapply( taxaListFamily , function(x) length( x$record_id ) )
-  smallFamily <- which(recordIdNum2<3)
-  taxaListFamily <- taxaListFamily[-smallFamily]
-  
-  #Revise dfRefSeqOrder dataframe to reflect this
-  familyList <- sapply( taxaListFamily , function(x) unique( x$family_name ) )
-  dfRefSeqLargeOrder <- subset(dfRefSeqLargeOrder, dfRefSeqLargeOrder$taxa_name %in% familyList)
-  #Ordering by family list
-  dfRefSeqLargeOrder <- dfRefSeqLargeOrder[match(familyList, dfRefSeqLargeOrder$taxa_name), ]
-  
-  #Append lists together into one large list
-  taxaListComplete <- append(taxaListOrder, taxaListFamily)
-  #Combine Reference Sequence dataframes together
-  dfRefSeq <- rbind(dfRefSeqOrder, dfRefSeqLargeOrder)
-  
-  #Extract sequences and bin_uri from each order and family of taxaListComplete
-  binList2 <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
-  binSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
-  
-  #Take our reference sequences
-  alignmentRef <- as.character(dfRefSeq$nucleotides)
-  dfRefSeq$reference <- "reference"
-  #Name our reference as reference for each family so it can be identified as such in the alignment
-  alignmentRefNames <- dfRefSeq$reference
-  
-  #Merge our reference sequences with each of our family/order sequences
-  alignmentSequencesPlusRef <- mapply(c, binSequences, alignmentRef)
-  #Merge the names together
-  alignmentNames <- mapply(c, binList2, alignmentRefNames)
-  
-  #Else if there are no orders larger than 2000 bp, will simply automate by order entirely
-  } else {
+#Symmetrical trimming of the references to a standard 620 bp from 658 bp
+dfRefSeq$nucleotides <- substr(dfRefSeq$nucleotides, 20, nchar(dfRefSeq$nucleotides)-19)
+
+#Check of sequence length
+dfRefSeq$seqLength <- nchar(dfRefSeq$nucleotides)
+
+#Subset dfAllSeq by entries in the reference sequence dataframe
+dfAllSeq <- subset(dfAllSeq, dfAllSeq$class_name %in% dfRefSeq$taxa)
     
-    #For the automation process, will simply use the first sequence from each order as a placeholder reference sequence with sequence length restrictions
-    dfAllSeq$seqLength <- nchar(dfAllSeq$nucleotides)
-    seqLength <- which(dfAllSeq$seqLength < 670)
-    dfAllSeq2 <- dfAllSeq[seqLength,]
-    seqLength2 <- which(dfAllSeq2$seqLength > 650)
-    dfAllSeq2 <-dfAllSeq2[seqLength2,]
-    dfRefSeq <- by(dfAllSeq2, dfAllSeq2["order_name"], head, n=1)
-    dfRefSeq <- Reduce(rbind, dfRefSeq)
-    dfRefSeq <- (dfRefSeq[,c("order_name","nucleotides")])
+#Break dfAllSeq down into the various classes, could be edited for orders instead
+taxaListComplete <- lapply(unique(dfAllSeq$class_taxID), function(x) dfAllSeq[dfAllSeq$class_taxID == x,])
     
-    #To manually input reference sequences, uncomment this code where the name and sequences would be put in quotations separated by commas
-    #in the dataframe below:
-    #dfRefSeq <- data.frame(taxa = c(""),
-    #                       nucleotides = c(""))
-    #colnames(dfRefSeq)[2] <- "nucleotides"
-    #dfRefSeq$nucleotides <- as.character(dfRefSeq$nucleotides)
+#Revise dfRefSeq dataframe to reflect this
+classList <- sapply( taxaListComplete , function(x) unique( x$class_name ) )
+#This command will ensure the reference sequence dataframe is in the same order as the allseq dataframe
+dfRefSeq <- dfRefSeq[match(classList, dfRefSeq$taxa),]
     
-    #Subset dfAllSeq by entries in the reference sequence dataframe
-    dfAllSeq <- subset(dfAllSeq, dfAllSeq$order_name %in% dfRefSeq$order_name)
+#Extract sequences and bin_uri from each class
+classBin <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
+classSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
+classSequencesNames <- classBin
     
-    #Break dfAllSeq down into the various families/Orders, could be edited for orders instead
-    taxaListComplete <- lapply(unique(dfAllSeq$order_taxID), function(x) dfAllSeq[dfAllSeq$order_taxID == x,])
+#Take our reference sequences
+alignmentRef <- as.character(dfRefSeq$nucleotides)
+dfRefSeq$reference <- "reference"
+#Name our reference as reference for each class so it can be identified as such in the alignment
+alignmentRefNames <- dfRefSeq$reference
     
-    #Find orders with less than 3 members and remove them since these cant generate any pairings
-    recordIdNum <- sapply( taxaListComplete , function(x) length( x$record_id ) )
-    smallOrder <- which(recordIdNum<3)
-    if(length(smallOrder)>0){
-      taxaListComplete <- taxaListComplete[-smallOrder]
-    }
-    
-    #Revise dfRefSeq dataframe to reflect this
-    orderList <- sapply( taxaListComplete , function(x) unique( x$order_name ) )
-    #This command will ensure the reference sequence dataframe is in the same order as the allseq dataframe
-    dfRefSeq <- dfRefSeq[match(orderList, dfRefSeq$order_name),]
-    
-    #Extract sequences and bin_uri from each family
-    orderBin <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
-    orderSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
-    orderSequencesNames <- orderBin
-    
-    #Take our reference sequences
-    alignmentRef <- as.character(dfRefSeq$nucleotides)
-    dfRefSeq$reference <- "reference"
-    #Name our reference as reference for each family so it can be identified as such in the alignment
-    alignmentRefNames <- dfRefSeq$reference
-    
-    #Merge our reference sequences with each of our family sequences
-    alignmentSequencesPlusRef <- mapply(c, orderSequences, alignmentRef)
-    #Merge the names together
-    alignmentNames <- mapply(c, orderSequencesNames, alignmentRefNames)
-}
+#Merge our reference sequences with each of our class sequences
+alignmentSequencesPlusRef <- mapply(c, classSequences, alignmentRef)
+#Merge the names together
+alignmentNames <- mapply(c, classSequencesNames, alignmentRefNames)
 
 #Converting all sequences in dfAllSeq plus reference to DNAStringSet format, this is 
 #the format required for the alignment
@@ -602,7 +493,7 @@ refSeqPosEnd <- foreach(i=1:nrow(dfRefSeq)) %do% (nchar(dfRefSeq$nucleotides[i])
 refSeqPosEnd <- as.numeric(refSeqPosEnd)
 
 #Then we can substr the alignment by these positions to effectively trim the alignment
-alignment2Trim <- foreach(i=1:nrow(dfRefSeq)) %do% substr(alignment2[[i]], refSeqPosStart[i], refSeqPosEnd[i])
+alignment2Trim <- foreach(i=1:nrow(dfRefSeq)) %do% substr(alignment2[[i]], refSeqPosStart[i]+1, refSeqPosEnd[i])
 
 #Again convert to dnaStringSet format
 dnaStringSet3 <- sapply( alignment2Trim, function(x) DNAStringSet( x ) )
@@ -646,7 +537,7 @@ pairingResultCandidates <- foreach(i=1:length(taxaListComplete)) %do% which(gene
 pairingResultCheck <- foreach(i=1:length(taxaListComplete)) %do% which(length(pairingResultCandidates[[i]]) == 0)
 pairingResultCheck <- which(pairingResultCheck>0)
 #Subset taxalistcomplete, geneticDistance, pairingResultCandidate, dnaStringSet lists according to pairingResultCheck
-#so that we arent keeping orders/families without pairings in these lists
+#so that we arent keeping classes without pairings in these lists
 if(length(pairingResultCheck>0)){
   taxaListComplete <- taxaListComplete[-pairingResultCheck]
   geneticDistanceStackList <- geneticDistanceStackList[-pairingResultCheck]
@@ -962,7 +853,7 @@ colnames(dfOutGroupL2)[3] <- "associatedInGroupBin"
 rm(dfOutGroupMerge)
 rm(dfTrimmedSeq)
 
-#Some orders/families may not have any viable outgroupings so we can filter those out
+#Some classes may not have any viable outgroupings so we can filter those out
 noOutGroupCheck <- setdiff(dfPairingResultsL1$bin_uri, dfOutGroupL1$associatedInGroupBin)
 noOutGroupCheck <- foreach(i=1:length(noOutGroupCheck)) %do% which(dfPairingResultsL1$bin_uri == noOutGroupCheck[[i]])
 noOutGroupCheck <- unlist(noOutGroupCheck)
@@ -1081,7 +972,7 @@ dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupP
 #Identifying PseudoReplicates 
 
 #To check for the phylogenetics problem of pseudoreplication we can generate another 
-#smaller distance matrix with our selected pairings only for each order/family
+#smaller distance matrix with our selected pairings only for each class
 #If a bin from one pairing is actually closer to a bin from another pairing 
 #(as opposed to its paired lineage) 
 #than we would have to average the results of those two pairings in the statistics section
@@ -1117,7 +1008,7 @@ if(length(pseudoRepMatrixLengthCheck)>0){
   pseudoRepMatrixList <- pseudoRepMatrixList[-pseudoRepMatrixLengthCheck]
 }
 
-#For each column and row of each distance matrix (each matrix belonging to a specific order or family), if a distance value is lower than the
+#For each column and row of each distance matrix (each matrix belonging to a specific class), if a distance value is lower than the
 #pairwise distances of each pairing than we know there is another bin which is actually closer
 #We check for this by using our pairwise distances from the dfPairingResultsLineage
 #dataframes
@@ -1276,33 +1167,31 @@ dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupP
 #and make the results easier to read, this will include relative outgroup distance
 dfPairingResultsSummary <- (dfPairingResultsL1L2[,c("inGroupPairing","relativeOutGroupDist","inGroupBin","inGroupDist","inGroupDistx1.3",
                                                     "outGroupDistance","outGroupBin","medianLatAbs.x","latDelta","latMin.x",
-                                                    "latMax.x","order_name.x","family_name.x","genus_name.x",
-                                                    "species_name.x","trimmedNucleotides.x","order_name.y","family_name.y",
+                                                    "latMax.x","class_name.x","order_name.x","family_name.x","genus_name.x",
+                                                    "species_name.x","trimmedNucleotides.x","class_name.x","order_name.y","family_name.y",
                                                     "genus_name.y","species_name.y","trimmedNucleotides.y")])
 colnames(dfPairingResultsSummary)[8] <- "inGroupMedianLatAbs"
 colnames(dfPairingResultsSummary)[10] <- "inGroupMinLat"
 colnames(dfPairingResultsSummary)[11] <- "inGroupMaxLat"
-colnames(dfPairingResultsSummary)[12] <- "inGroupOrder"
-colnames(dfPairingResultsSummary)[13] <- "inGroupFamily"
-colnames(dfPairingResultsSummary)[14] <- "inGroupGenus"
-colnames(dfPairingResultsSummary)[15] <- "inGroupSpecies"
-colnames(dfPairingResultsSummary)[16] <- "inGroupNucleotides"
-colnames(dfPairingResultsSummary)[17] <- "outGroupOrder"
-colnames(dfPairingResultsSummary)[18] <- "outGroupFamily"
-colnames(dfPairingResultsSummary)[19] <- "outGroupGenus"
-colnames(dfPairingResultsSummary)[20] <- "outGroupSpecies"
-colnames(dfPairingResultsSummary)[21] <- "outGroupNucleotides"
+colnames(dfPairingResultsSummary)[12] <- "inGroupClass"
+colnames(dfPairingResultsSummary)[13] <- "inGroupOrder"
+colnames(dfPairingResultsSummary)[14] <- "inGroupFamily"
+colnames(dfPairingResultsSummary)[15] <- "inGroupGenus"
+colnames(dfPairingResultsSummary)[16] <- "inGroupSpecies"
+colnames(dfPairingResultsSummary)[17] <- "inGroupNucleotides"
+colnames(dfPairingResultsSummary)[18] <- "outGroupClass"
+colnames(dfPairingResultsSummary)[19] <- "outGroupOrder"
+colnames(dfPairingResultsSummary)[20] <- "outGroupFamily"
+colnames(dfPairingResultsSummary)[21] <- "outGroupGenus"
+colnames(dfPairingResultsSummary)[22] <- "outGroupSpecies"
+colnames(dfPairingResultsSummary)[23] <- "outGroupNucleotides"
 #Reordering
 dfPairingResultsSummary <- dfPairingResultsSummary[order(dfPairingResultsSummary$inGroupPairing),]
 
 #Merge Relative Dist dataframe to a pairing results dataframe to grab the order names so results can
-#be broken down by order
+#be broken down by class
 dfRelativeDist <- merge(dfRelativeDist, dfPairingResultsL1, by.x = "variable", by.y = "inGroupPairing")
-dfRelativeDist <- (dfRelativeDist[,c("variable","value","sign","order_name.x")])
-
-#To see number of pairings per order
-orderSizes <- table(unlist(dfPairingResultsSummary$inGroupOrder))
-dfOrderSize <- as.data.frame(orderSizes)
+dfRelativeDist <- (dfRelativeDist[,c("variable","value","sign","class_name.x")])
 
 ##################
 #PseudoReplicate Relative Outgroup Distance Averaging 
@@ -1314,7 +1203,7 @@ if(nrow(dfPseudoRep)>0){
   #to do this
   dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, by.x = "inGroupPairing", by.y = "variable")
   dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, by.x = "inGroupPairing2", by.y = "variable")
-  dfPseudoRep <- (dfPseudoRep[,c("inGroupPairing","value.x","inGroupPairing2","value.y","order_name.x.x")])
+  dfPseudoRep <- (dfPseudoRep[,c("inGroupPairing","value.x","inGroupPairing2","value.y","class_name.x.x")])
   colnames(dfPseudoRep)[2] <- "relativeDist1"
   colnames(dfPseudoRep)[4] <- "relativeDist2"
   #Also ordering dfPseudoRep
@@ -1394,10 +1283,10 @@ if(nrow(dfPseudoRep)>0){
   pseudoRepPairings <- pseudoRepPairings[!duplicated(pseudoRepPairings)]
   #Then subsetting dfRelativeDist based on this
   dfRelativeDist <- dfRelativeDist[setdiff(dfRelativeDist$variable, pseudoRepPairings),]  
-  #Adding order names to dfPseudoRepAverage
-  dfPseudoRepAverage$orderName <- sapply( pseudoRepList, function(x) unique( x$order_name.x.x ) )
+  #Adding class names to dfPseudoRepAverage
+  dfPseudoRepAverage$className <- sapply( pseudoRepList, function(x) unique( x$class_name.x.x ) )
   #Column name change for dfRelativeDist
-  colnames(dfRelativeDist)[4] <- "orderName"
+  colnames(dfRelativeDist)[4] <- "className"
   #Now dfPseudoRepAverage will be appended to the relativeDist dataframe
   dfRelativeDist <- rbind(dfRelativeDist,dfPseudoRepAverage)
   #Can remove dfPseudoRep since it is redundant with dfPseudoRepAverage
@@ -1427,33 +1316,33 @@ binomialTestOutGroup <- binom.test(successOverall,
 
 #Binomial test for each order separately
 
-#Break relative outgroup distances down by order
-orderBinomList <- lapply(unique(dfRelativeDist$orderName), 
-                         function(x) dfRelativeDist[dfRelativeDist$orderName == x,])
+#Break relative outgroup distances down by class
+classBinomList <- lapply(unique(dfRelativeDist$className), 
+                         function(x) dfRelativeDist[dfRelativeDist$className == x,])
 
 #Total number of observations for each order
-orderNumObservations <- sapply( orderBinomList , function (x) length( x$variable ) )
+classNumObservations <- sapply( classBinomList , function (x) length( x$variable ) )
 
 #Number of successes for each order
-orderNumSuccesses <- sapply( orderBinomList , function (x) which( x$sign == "positive" ) )
-orderNumSuccesses <- sapply( orderNumSuccesses , function (x) length( x ) )
+classNumSuccesses <- sapply( classBinomList , function (x) which( x$sign == "positive" ) )
+classNumSuccesses <- sapply( classNumSuccesses , function (x) length( x ) )
 
 #Binom test for each order
-binomOrder <- foreach(i=1:length(orderNumObservations)) %do% 
-  binom.test(orderNumSuccesses[i],
-             orderNumObservations[i], 
+binomClass <- foreach(i=1:length(classNumObservations)) %do% 
+  binom.test(classNumSuccesses[i],
+             classNumObservations[i], 
              p=0.5)
 
 #p-value extraction for binomial test from each order
 pvalBinomialTotal <- binomialTestOutGroup$p.value
-pvalBinomialOrder <- sapply( binomOrder , function (x) ( x$p.value ) )
+pvalBinomialClass <- sapply( binomClass , function (x) ( x$p.value ) )
 
 #Creation of a dataframe for p-values
-allOrderVariable <- "AllOrders"
-orderNames1 <- sapply( orderBinomList , function (x) unique( x$orderName ) )
-orderNames2 <- append(allOrderVariable, orderNames1)
-pValBinomial <- append(pvalBinomialTotal, pvalBinomialOrder)
-dfPVal <- data.frame(orderNames2)
+allClassVariable <- "AllClasses"
+classNames1 <- sapply( classBinomList , function (x) unique( x$className ) )
+classNames2 <- append(allClassVariable, classNames1)
+pValBinomial <- append(pvalBinomialTotal, pvalBinomialClass)
+dfPVal <- data.frame(classNames2)
 dfPVal$pValueBinomial <- pValBinomial
 
 #Wilcoxon Test
@@ -1463,21 +1352,21 @@ dfPVal$pValueBinomial <- pValBinomial
 #to compare the median for a significant difference from the null expectation of zero.
 #This test will consider both the magnitude and direction but is also non-parametric
 
-#wilcoxon test for all orders
+#wilcoxon test for all classes
 wilcoxTestOutGroup <- wilcox.test(dfRelativeDist$value, mu=0)
 
-#Wilcoxon test for each order separately:
+#Wilcoxon test for each class separately:
 
-#Relative outgroup values for each order to be fed into test
-orderValue <- sapply( orderBinomList , function (x) ( x$value ) )
+#Relative outgroup values for each class to be fed into test
+classValue <- sapply( classBinomList , function (x) ( x$value ) )
 
-#Wilcoxon test for each order
-wilcoxonOrder <- foreach(i=1:length(orderValue)) %do% wilcox.test(orderValue[[i]], mu=0) 
+#Wilcoxon test for each class
+wilcoxonClass <- foreach(i=1:length(classValue)) %do% wilcox.test(classValue[[i]], mu=0) 
 
 #p-value extraction for wilcoxon test
 pvalWilcoxon <- wilcoxTestOutGroup$p.value
-pvalWilcoxonOrder <- sapply( wilcoxonOrder , function (x) ( x$p.value ) )
-pValWilcoxonTotal <- append(pvalWilcoxon, pvalWilcoxonOrder)
+pvalWilcoxonClass <- sapply( wilcoxonClass , function (x) ( x$p.value ) )
+pValWilcoxonTotal <- append(pvalWilcoxon, pvalWilcoxonClass)
 
 #Addition of wilcoxon p-values to dfPVal dataframe
 dfPVal$pValueWilcoxon <- pValWilcoxonTotal 
@@ -1489,31 +1378,31 @@ dfPVal$pValueWilcoxon <- pValWilcoxonTotal
 #Will plot red if the value is below 0 (meaning not a success) and 
 #blue if above 0 (success!)
 
-#Make the variable column a factor for dfRealtiveDistOverall so ggplot orders pairings correctly
+#Make the variable column a factor for dfRealtiveDistOverall so ggplot classes pairings correctly
 dfRelativeDist$variable <- factor(dfRelativeDist$variable, 
                                   levels = dfRelativeDist$variable)
 
-#breaking dfRelativeDist down to a list by order so plots can be generated according to order
-relativeDistOrder <- lapply(unique(dfRelativeDist$orderName), 
-                            function(x) dfRelativeDist[dfRelativeDist$orderName == x,])
+#breaking dfRelativeDist down to a list by order so plots can be generated according to class
+relativeDistClass <- lapply(unique(dfRelativeDist$className), 
+                            function(x) dfRelativeDist[dfRelativeDist$className == x,])
 
-#Variables for the title of each plot, will include name of the order and associated p-values
-orderTitle <- foreach(i=1:length(orderNames1)) %do% 
-  paste("Relative Outgroup Distances of Each Pairing of", orderNames1[i])
-pValBinomialTitle <- foreach(i=1:length(pvalBinomialOrder)) %do% 
-  paste("Binomial Test p-value:", round(pvalBinomialOrder[i], digits = 4))
-pvalWilcoxonTitle <- foreach(i=1:length(pvalBinomialOrder)) %do% 
-  paste("Wilcoxon Test p-value:", round(pvalWilcoxonOrder[i], digits = 4))
+#Variables for the title of each plot, will include name of the class and associated p-values
+classTitle <- foreach(i=1:length(classNames1)) %do% 
+  paste("Relative Outgroup Distances of Each Pairing of", classNames1[i])
+pValBinomialTitle <- foreach(i=1:length(pvalBinomialClass)) %do% 
+  paste("Binomial Test p-value:", round(pvalBinomialClass[i], digits = 4))
+pvalWilcoxonTitle <- foreach(i=1:length(pvalBinomialClass)) %do% 
+  paste("Wilcoxon Test p-value:", round(pvalWilcoxonClass[i], digits = 4))
 
 #Plot of signed relative distance per pairing using ggplot:
 
-#Separate plots will be generated for each order 
+#Separate plots will be generated for each class 
 
-foreach(i=1:length(relativeDistOrder)) %do%  
-  (print(ggplot(relativeDistOrder[[i]], aes(x = variable, y = value, color = sign))
+foreach(i=1:length(relativeDistClass)) %do%  
+  (print(ggplot(relativeDistClass[[i]], aes(x = variable, y = value, color = sign))
          + geom_point(stat="identity", size = 2.5) 
          + theme(text = element_text(size=13), axis.text.x = element_text(face="bold",angle=90, vjust=1))
-         + ggtitle(paste0(orderTitle[i],"\n", pValBinomialTitle[i], "\n", pvalWilcoxonTitle[i])) 
+         + ggtitle(paste0(classTitle[i],"\n", pValBinomialTitle[i], "\n", pvalWilcoxonTitle[i])) 
          + labs(x="Pairing Number", y="Signed Relative OutGroup Distance", color = "sign")))
 
 
@@ -1576,7 +1465,7 @@ dfPairingResultsL1L2$hover <- paste("PairNum:",dfPairingResultsL1L2$inGroupPairi
 #First taking all unique class names to name the map
 uniqueClass <- unique(dfPairingResultsL1L2$class_name.x)
 #Pasting them together
-classConcatenate <- paste(uniqueClass, collapse = ',')
+classConcatenate <- paste(uniqueClass , collapse = ',')
 
 #Map title command
 mapTitle <- paste("Map of Latitude Separated Sister Pairings for", classConcatenate)
@@ -1584,15 +1473,15 @@ mapTitle <- paste("Map of Latitude Separated Sister Pairings for", classConcaten
 #this command will show a map organized by the pairing number with each pairing number having its
 #own distinctive color on a spectrum of purple (shortest distance) to red (longest distance)
 #map can become crowded with large numbers of pairings so individual maps may need to be manually created
-#for each order
+#for each class
 plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = hover,
         color = as.ordered(inGroupPairing), colors = "Spectral", mode = "markers+lines", type = 'scattergeo') %>%
   layout(title = paste0(mapTitle) , geo = mapLayout)
 
-#A map can be generated by order with each order having its own distinctive color as well
+#A map can be generated by class with each order having its own distinctive color as well
 #but due to limitations with plotly, lines will not connect pairings:
 plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = hover,
-        color = order_name.x, mode = "markers", type = 'scattergeo') %>%
+        color = class_name.x, mode = "markers", type = 'scattergeo') %>%
   layout(title = paste0(mapTitle) , geo = mapLayout)
 
 #***you will need to click on the icon in the viewer (bottom right corner) that says "show in new window" 
