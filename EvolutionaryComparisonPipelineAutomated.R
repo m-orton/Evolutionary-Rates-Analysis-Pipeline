@@ -3,6 +3,7 @@
 #Contribution by Jacqueline May for lines 220-246 of script 
 #Contributions by David Lee for lines 1148-1169, editing and formatting of script
 #Contributions by Winfield Ly for editing and formatting of script
+#Collaboration of Sarah Adamowicz (University of Guelph) in designing the analyses
 
 #Pipeline Purpose:
 
