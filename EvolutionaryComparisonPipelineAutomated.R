@@ -6,103 +6,105 @@
 #Collaboration of Sarah Adamowicz (University of Guelph) in designing the analyses
 
 
-#Pipeline Purpose (Class Level Analyses):
+#Pipeline Purpose (Class-Level Analyses):
 
 #This pipeline will allow for the generation of latitudinally separated sister pairings and
 #associated outgroupings from nearly any taxa (provided they have a suitable reference sequence and are not too large)
 #and geographical region found on the BOLD API in one streamlined R pipeline!
-#In this new and improved iteration, data is translated directly from a BOLD tsv file of
-#the users choosing to a dataframe in R. The generated sister pairs and outgroups can then
-#be written to a csv or tsv and the file will appear in the current working directory of R
+#In this new and improved iteration, data are translated directly from a BOLD tsv file of
+#the user's choosing to a dataframe in R. The generated sister pairs and outgroups can then
+#be written to a csv or tsv, and the file will appear in the current working directory of R.
 #Additionally, binomial and Wilcoxon tests can be performed on the relative outgroup 
-#distances of the generated pairings and a plot of the resultant relative outgroup distances can be 
-#generated for each order
-#A world map visualizing for each order of the latitude separated pairings can also be run using plotly
+#distances of the generated pairings, and a plot of the resultant relative outgroup distances can be 
+#generated for each order.
+#A world map visualizing the latitudinally separated pairings for each taxon can also be run using plotly.
 
-#Larger taxa including various phyla can be run and will get broken down into classes and the pairing analysis 
-#is performed at the class level by default. 
-#Smaller taxa (below the class level) can be run however the analysis will still be performed at the class level
+#Larger taxa including various phyla can be run and will get broken down into classes, and sister pairs are sought
+#within classes by default. 
+#Lowever-level taxonomic groups (below the class level) can be run. However, the analysis will still be performed at the class level. (Matt a clarification is needed here. I do not follow the explanation on this line, as currently phrased.)
 
 ##################
 #Some important tips:
 
-#Make sure to use RStudio since this will provide a better interface to run the script on than just R
+#Make sure to use RStudio since this will provide a better interface to run the script than just R.
 
-#The taxa being tested must use BIN identifiers as a means of identification, 
-#for instance plants on the BOLD API cannot be run using this pipeline since they do not use BIN identifiers
+#The taxa being tested must use BIN identifiers as a means of identification; 
+#for instance, plants on the BOLD API cannot be run using this pipeline since they do not use BIN identifiers.
 
-#At this time, it is best not to run Arthropoda, Insecta or Chordata since these are all very large and computationally demanding 
-#and should be broken down into smaller sub-taxa
+#At this time, it is best not to run Arthropoda, Insecta, or Chordata since these are all very large and computationally demanding 
+#and should be broken down into smaller sub-taxa.
 
-#Larger taxa consume a great deal of working memory so be mindful of the amount of available working memory you have available on your 
-#PC/Mac
+#Larger taxa consume a great deal of working memory, so be mindful of the amount of available working memory you have available on your 
+#PC/Mac.
 #As a benchmark, the class Actinopterygii which contains roughly 250000 unique entries on BOLD consumes close to 3.4 Gb of working memory
-#to run
-#Its probably a good idea to ensure RStudio is the only major application running when you run the script
+#to run.
+#It's probably a good idea to ensure RStudio is the only major application running when you run the script
 
-#Entries on BOLD which do not at least have order level classification will be filtered out
-#since the pipeline cannot properly categorize these 
+#Entries on BOLD which do not at least have order-level classification will be filtered out (Matt - should this read "class-level" in this sentence, for this version of the pipeline?)
+#since the pipeline cannot properly categorize these. 
 
 #You do not have to worry about entries missing certain pieces of data, for example latitude coordinates, sequence data etc.
-#The script should filter these automatically
+#The script will filter these records out automatically.
 
-#There are two options for parsing the tsv, you can either download the tsv directly from the
-#BOLD API OR you can use a tsv you have previously downloaded, dont forget you can also
-#save your workspace once a TSV is downloaded so you dont have to download again
+#There are two options for parsing the tsv. You can either download the tsv directly from the
+#BOLD API OR you can use a tsv you have previously downloaded. Don't forget you can also
+#save your workspace once a TSV is downloaded so you dont have to download it again.
 
-#When testing a taxa for the first time you will have to ensure that you have a suitable 
-#reference sequence for it and ensure that it is inserted into the dfRefSeq dataframe
-#To insert a sequence to the dfRefSeq dataframe, simply add another taxa and sequence in quotations in the refseq dataframe command
-#in the reference sequence section
-#Make sure that you keep the entire sequence in one line, breaking it up on to separate lines will add a new line character
+#When testing a taxon for the first time, you will have to ensure that you have a suitable 
+#reference sequence for it and ensure that it is inserted into the dfRefSeq dataframe.
+#The reference sequence is a high-quality sequence from a given taxon, which is used as the basis for the first alignment step.
+#As well, the reference sequence is used to trim all sequences to the same length for analysis.
+#To insert a sequence to the dfRefSeq dataframe, simply add another taxon and sequence in quotations in the refseq dataframe command
+#in the reference sequence section.
+#Make sure that you keep the entire sequence in one line; breaking it up on to separate lines will add a new line character.
 
 #Some tips for using the BOLD API since this is what is used to grab the relevant data we need: 
 #To see details on how to use the bold API, 
 #go to http://www.boldsystems.org/index.php/resources/api?type=webservices
-#Can add additional restrictions to url, for example 
+#We can add additional restrictions to the url, for example 
 #&instituiton=Biodiversity Institute of Ontario|York University or 
-#&marker=COI-5P if you want to specifiy an institution or specific genetic marker in the url
-#geo=all in the url means global but geo can be geo=Canada for example
+#&marker=COI-5P if you want to specifiy an institution or specific genetic marker in the url.
+#geo=all in the url means global but geo can be geo=Canada, for example.
 #Can use | modifier in the url, for example &geo=Canada|Alaska would give data for 
 #both Canada and Alaska, 
-#or taxon=Aves|Reptilia would yield give data for both Aves and Reptilia
+#or taxon=Aves|Reptilia would yield give data for both Aves and Reptilia.
 
 #################
 #Important dataframes:
 
 #dfPVal gives the p-values for both the binomial test and wilcoxon tests for all classes (that have pairings)
-#and each order separately
+#and each order separately.
 
-#dfPairingResultsSummary shows a more user friendly summation of the pairing results
+#dfPairingResultsSummary shows a more user-friendly summation of the pairing results.
 
-#dfRelativeDist shows the relative distances to the outgroup for each pairing including pseudoreplicates
+#dfRelativeDist shows the relative distances to the outgroup for each pairing, including pseudoreplicates.
 
 #dfPairingResultsL1L2 is the more detailed finalized dataframe that contains all of the finalized pairings
-#and outgroupings
+#and outgroupings.
 
-#dfPairingResultsL1 and dfPairingResultsL2 represent dataframes for each lineage of each pairing respectively
+#dfPairingResultsL1 and dfPairingResultsL2 represent dataframes for each lineage of each pairing respectively.
 
 #dfInitial is the dataframe first produced by the import from BOLD and is filtered by lat, 
 #bin_uri, N content, Gap content and sequence length.
 
-#dfOutGroupL1 and L2 contain the associated outgroupings only (for each lineage) but 
-#each one does have a column for which pairing its associated with
+#dfOutGroupL1 and L2 contain the associated outgroupings only (for each lineage), but 
+#each one does have a column indicating the pairing with which it is associated. (Matt - please verify this edit.)
 
-#dfCentroid contains centroid sequences for all bins with more than one member 
+#dfCentroid contains centroid sequences for all bins with more than one member. 
 
-#dfNonCentroid contains all bins that only have one member and thus do not need centroid sequences
+#dfNonCentroid contains all bins that only have one member and thus do not need centroid sequences.
 
-#dfAllSeq is simply dfNonCentroid and dfCentroid combined together in one dataframe
+#dfAllSeq is simply dfNonCentroid and dfCentroid combined together in one dataframe.
 
 #dfGeneticDistanceStack is all genetic distance matrices concatenated into one long 
-#column of values, it is used to grab bin_uri's and distances for each pairing and assist in determining outgroup 
-#bin_uri's and distances
+#column of values. It is used to grab bin_uri's and distances for each pairing and assist in determining outgroup 
+#bin_uri's and distances.
 
-#dfRefSeq shows various taxa with a suitable reference sequence that has been found for them
+#dfRefSeq shows various taxa with a suitable reference sequence that has been found for them.
 #This dataframe may be broken up into dfRefSeqOrder and dfRefSeqLargeOrder if there are very large orders that need to broken
-#down to families
+#down to families.
 
-#dfPseudoRepAverage shows the averaged distances for each set of pseudoreplicates in dfPseudoRep
+#dfPseudoRepAverage shows the averaged distances for each set of pseudoreplicates in dfPseudoRep.
 
 ##################
 #Important Variables
