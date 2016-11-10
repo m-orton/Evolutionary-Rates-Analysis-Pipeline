@@ -21,7 +21,6 @@
 
 #Larger taxa including various phyla can be run and will get broken down into classes, and sister pairs are sought
 #within classes by default. 
-#Lowever-level taxonomic groups (below the class level) can be run. However, the analysis will still be performed at the class level. (Matt a clarification is needed here. I do not follow the explanation on this line, as currently phrased.Do you mean pairings will be sought within classes?)
 
 ##################
 #Some important tips:
@@ -40,7 +39,7 @@
 #to run.
 #It's probably a good idea to ensure RStudio is the only major application running when you run the script.
 
-#Entries on BOLD which do not at least have order-level classification will be filtered out (Matt - should this read "class-level" in this sentence, for this version of the pipeline?)
+#Entries on BOLD which do not at least have order-level classification will be filtered out 
 #since the pipeline cannot properly categorize these. 
 
 #You do not have to worry about entries missing certain pieces of data, for example latitude coordinates, sequence data etc.
@@ -88,7 +87,7 @@
 #bin_uri, N content, Gap content, and sequence length.
 
 #dfOutGroupL1 and L2 contain the associated outgroupings only (for each lineage), but 
-#each one does have a column indicating the pairing with which it is associated. (Matt - please verify this edit.)
+#each one does have a column indicating the pairing with which it is associated. 
 
 #dfCentroid contains centroid sequences for all bins with more than one member. 
 
@@ -128,7 +127,7 @@
 #Packages required
 #Note that once you have installed the packages (the first time running the script), 
 #you only have to run the libraries again each time you open up RStudio.
-#Therefore, remove the "#" symbol in front of the lines for installing the packages the first time running the script. (Matt - please verify that I have correctly stated the inserted edit on this line.)
+#Therefore, remove the "#" symbol in front of the lines for installing the packages the first time running the script. 
 
 #We need the foreach package for several functions that require iteration over dataframe rows.
 #install.packages("foreach")
@@ -145,16 +144,18 @@ library(readr)
 library("Biostrings")
 #biocLite("msa")
 library("msa")
-#For overlapping latitude regions we need the Desctools package. (Matt - The phrasing of this comment needs improving. Do you mean for calculating overlap in latitude ranges of BINs?)
+#For the calculation of overlapping latitude regions we need the Desctools package. 
+#The Desctools package allows us to use the Overlap function which can calculate overlap regions between bins based on 
+#the maximum and minimum latitudinal ranges of each bin.
 #install.packages("DescTools")
 library(DescTools)
-#Also adding data tables for table merging in the outgrouping section. (Matt - As well, I suggest to rephrase this comment more clearly. Do you mean something like: "The data.table package is needed for merging tables for the outgroup selection"?)
+#Adding the data tables package for data table merging of outgroup bin data with pairing results bin data in the outgroup section. 
 #install.packages("data.table")
 library(data.table)
 #For plotting of relative outgroup distances between lineages we will also need ggplot2.
-#install.packages ("ggplot2") (Matt - I added this line. There was no "install.packages" line for this, but this seems to be needed.)
+#install.packages ("ggplot2") 
 require(ggplot2)
-#dplyr is required if this is not already installed. (Matt - I added this line as I got an error message unti I also installed this.)
+#dplyr is required if this is not already installed.
 #install.packages("dplyr")
 library(dplyr)
 #plotly for map plotting functionality.
@@ -301,11 +302,13 @@ binSize <- sapply( binList , function (x) length( x$record_id ) )
 #Dataframe of our median lat values. This will be used in our final dataframe.
 dfLatLon <- data.frame(medianLatAbs)
 
-#Adding bin_uri, latMin, latMax and binSize to dataframe with medianLat. (Matt - Here, should this last word be clarified? Is this absolute median latitude or original or both?)
+#Adding bin_uri, latMin, latMax, binSize and medianLatMap to dataframe. 
+#medianLatMap is the median latitude without conversion to an absolute value and
+#is used purely for mapping purposes
 dfLatLon$bin_uri <- c(unique(dfInitial$bin_uri))
 dfLatLon$medianLon <- c(medianLon)
 dfLatLon$latMin <- c(latMin)
-#Convert to absolute value for latMin and Max. (Matt - Should that latter word be changed to latMax?)
+#Convert to absolute value for latMin and latMax. 
 dfLatLon$latMin <- abs(dfLatLon$latMin)
 dfLatLon$latMax <- c(latMax)
 dfLatLon$latMax <- abs(dfLatLon$latMax)
