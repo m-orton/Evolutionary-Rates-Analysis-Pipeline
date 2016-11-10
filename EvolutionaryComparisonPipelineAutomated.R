@@ -39,7 +39,7 @@
 #to run.
 #It's probably a good idea to ensure RStudio is the only major application running when you run the script.
 
-#Entries on BOLD which do not at least have order-level classification will be filtered out 
+#Entries on BOLD which do not at least have class-level classification will be filtered out 
 #since the pipeline cannot properly categorize these. 
 
 #You do not have to worry about entries missing certain pieces of data, for example latitude coordinates, sequence data etc.
