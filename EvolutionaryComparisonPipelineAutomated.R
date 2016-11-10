@@ -16,7 +16,7 @@
 #be written to a csv or tsv, and the file will appear in the current working directory of R.
 #Additionally, binomial and Wilcoxon tests can be performed on the relative outgroup 
 #distances of the generated pairings, and a plot of the resultant relative outgroup distances can be 
-#generated for each order.
+#generated for each class.
 #A world map visualizing the latitudinally separated pairings for each taxon can also be run using plotly.
 
 #Larger taxa including various phyla can be run and will get broken down into classes, and sister pairs are sought
@@ -54,7 +54,7 @@
 #The reference sequence is a high-quality sequence from a given taxon, which is used as the basis for the first alignment step.
 #As well, the reference sequence is used to trim all sequences to the same length for analysis.
 #To insert a sequence to the dfRefSeq dataframe, simply add another taxon and sequence in quotation markss in the refseq dataframe
-#commend in the reference sequence section.
+#commented in the reference sequence section.
 #Make sure that you keep the entire sequence in one line; breaking it up on to separate lines will add a new line character.
 
 #Some tips for using the BOLD API since this is what is used to grab the relevant data we need: 
@@ -72,7 +72,7 @@
 #Important dataframes:
 
 #dfPVal gives the p-values for both the binomial test and wilcoxon tests for all classes (that have pairings)
-#and each order separately.
+#and each class separately.
 
 #dfPairingResultsSummary shows a more user-friendly summation of the pairing results.
 
