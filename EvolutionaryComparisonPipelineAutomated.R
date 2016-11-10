@@ -21,7 +21,7 @@
 
 #Larger taxa including various phyla can be run and will get broken down into classes, and sister pairs are sought
 #within classes by default. 
-#Lowever-level taxonomic groups (below the class level) can be run. However, the analysis will still be performed at the class level. (Matt a clarification is needed here. I do not follow the explanation on this line, as currently phrased.)
+#Lowever-level taxonomic groups (below the class level) can be run. However, the analysis will still be performed at the class level. (Matt a clarification is needed here. I do not follow the explanation on this line, as currently phrased.Do you mean pairings will be sought within classes?)
 
 ##################
 #Some important tips:
@@ -36,9 +36,9 @@
 
 #Larger taxa consume a great deal of working memory, so be mindful of the amount of available working memory you have available on your 
 #PC/Mac.
-#As a benchmark, the class Actinopterygii which contains roughly 250000 unique entries on BOLD consumes close to 3.4 Gb of working memory
+#As a benchmark, the class Actinopterygii, which contains roughly 250000 unique entries on BOLD, consumes close to 3.4 Gb of working memory
 #to run.
-#It's probably a good idea to ensure RStudio is the only major application running when you run the script
+#It's probably a good idea to ensure RStudio is the only major application running when you run the script.
 
 #Entries on BOLD which do not at least have order-level classification will be filtered out (Matt - should this read "class-level" in this sentence, for this version of the pipeline?)
 #since the pipeline cannot properly categorize these. 
@@ -48,26 +48,26 @@
 
 #There are two options for parsing the tsv. You can either download the tsv directly from the
 #BOLD API OR you can use a tsv you have previously downloaded. Don't forget you can also
-#save your workspace once a TSV is downloaded so you dont have to download it again.
+#save your workspace once a TSV is downloaded so you don't have to download it again.
 
 #When testing a taxon for the first time, you will have to ensure that you have a suitable 
 #reference sequence for it and ensure that it is inserted into the dfRefSeq dataframe.
 #The reference sequence is a high-quality sequence from a given taxon, which is used as the basis for the first alignment step.
 #As well, the reference sequence is used to trim all sequences to the same length for analysis.
-#To insert a sequence to the dfRefSeq dataframe, simply add another taxon and sequence in quotations in the refseq dataframe command
-#in the reference sequence section.
+#To insert a sequence to the dfRefSeq dataframe, simply add another taxon and sequence in quotation markss in the refseq dataframe
+#commend in the reference sequence section.
 #Make sure that you keep the entire sequence in one line; breaking it up on to separate lines will add a new line character.
 
 #Some tips for using the BOLD API since this is what is used to grab the relevant data we need: 
-#To see details on how to use the bold API, 
+#To see details on how to use the BOLD API, 
 #go to http://www.boldsystems.org/index.php/resources/api?type=webservices
 #We can add additional restrictions to the url, for example 
 #&instituiton=Biodiversity Institute of Ontario|York University or 
 #&marker=COI-5P if you want to specifiy an institution or specific genetic marker in the url.
 #geo=all in the url means global but geo can be geo=Canada, for example.
-#Can use | modifier in the url, for example &geo=Canada|Alaska would give data for 
+#We can also use | modifier in the url. For example, &geo=Canada|Alaska would give data for 
 #both Canada and Alaska, 
-#or taxon=Aves|Reptilia would yield give data for both Aves and Reptilia.
+#or taxon=Aves|Reptilia would yield data for both Aves and Reptilia.
 
 #################
 #Important dataframes:
@@ -85,7 +85,7 @@
 #dfPairingResultsL1 and dfPairingResultsL2 represent dataframes for each lineage of each pairing respectively.
 
 #dfInitial is the dataframe first produced by the import from BOLD and is filtered by lat, 
-#bin_uri, N content, Gap content and sequence length.
+#bin_uri, N content, Gap content, and sequence length.
 
 #dfOutGroupL1 and L2 contain the associated outgroupings only (for each lineage), but 
 #each one does have a column indicating the pairing with which it is associated. (Matt - please verify this edit.)
@@ -101,7 +101,7 @@
 #bin_uri's and distances.
 
 #dfRefSeq shows various taxa with a suitable reference sequence that has been found for them.
-#This dataframe may be broken up into dfRefSeqOrder and dfRefSeqLargeOrder if there are very large orders that need to broken
+#This dataframe may be broken up into dfRefSeqOrder and dfRefSeqLargeOrder if there are very large orders that need to be broken
 #down to families.
 
 #dfPseudoRepAverage shows the averaged distances for each set of pseudoreplicates in dfPseudoRep.
@@ -109,50 +109,55 @@
 ##################
 #Important Variables
 
-#alignment2 will show the alignment of class
-#(ex: typing alignment2[1] will show the first alignment performed)
-#It is important to always check this variable to ensure the alignment is producing a 
-#reasonable result
+#alignment2 will show the alignment of class.
+#(For example, typing alignment2[1] will show the first alignment performed.)
+#It is important always to check this variable to ensure the alignment is producing a 
+#reasonable result.
 
-#alignment2Trim will show the trimmed sequences after alignment 
-#with the reference and trimming with the reference
-#Again, good to check this to make sure the result is reasonable
+#alignment2Trim will show the trimmed sequences after alignment
+#with the reference and trimming to the reference sequence length.
+#Again, it is good practice to check this to make sure the result is reasonable.
 
-#binomialTestOutGroup shows the results of the binomial test
+#binomialTestOutGroup shows the results of the binomial test.
 
-#wilcoxonTestOutgroup shows the results of the wilcoxon test
+#wilcoxonTestOutgroup shows the results of the wilcoxon test.
 
-#mapLayout will allow for customization of the world map for map plotting using Plotly
+#mapLayout will allow for customization of the world map for map plotting using Plotly.
 
 #################
 #Packages required
-#Note that once you have installed the packages (first time running the script), 
-#you only have to run the libraries again each time you open up RStudio
+#Note that once you have installed the packages (the first time running the script), 
+#you only have to run the libraries again each time you open up RStudio.
+#Therefore, remove the "#" symbol in front of the lines for installing the packages the first time running the script. (Matt - please verify that I have correctly stated the inserted edit on this line.)
 
-#We need the foreach package for several functions that require iteration over dataframe rows
+#We need the foreach package for several functions that require iteration over dataframe rows.
 #install.packages("foreach")
 library(foreach)
-#For genetic distance determination using the TN93 model, we use the ape package
+#For genetic distance determination using the TN93 model, we use the ape package.
 #install.packages("ape")
 library(ape)
-#Speeds up parsing of the tsv file with read_tsv function
+#Speeds up parsing of the tsv file using the read_tsv function.
 #install.packages("readr")
 library(readr)
-#For sequence alignments we need the biostrings (DNAStringSet function) and msa packages, 
+#For sequence alignments we need the biostrings (DNAStringSet function) and msa packages, as follows:
 #source("https://bioconductor.org/biocLite.R")
 #biocLite("Biostrings")
 library("Biostrings")
 #biocLite("msa")
 library("msa")
-#For overlapping latitude regions we need the Desctools package
+#For overlapping latitude regions we need the Desctools package. (Matt - The phrasing of this comment needs improving. Do you mean for calculating overlap in latitude ranges of BINs?)
 #install.packages("DescTools")
 library(DescTools)
-#Also adding data tables for table merging in the outgrouping section
+#Also adding data tables for table merging in the outgrouping section. (Matt - As well, I suggest to rephrase this comment more clearly. Do you mean something like: "The data.table package is needed for merging tables for the outgroup selection"?)
 #install.packages("data.table")
 library(data.table)
-#For plotting of relative outgroup distances between lineages we will also need ggplot2
+#For plotting of relative outgroup distances between lineages we will also need ggplot2.
+#install.packages ("ggplot2") (Matt - I added this line. There was no "install.packages" line for this, but this seems to be needed.)
 require(ggplot2)
-#plotly for map plotting functionality
+#dplyr is required if this is not already installed. (Matt - I added this line as I got an error message unti I also installed this.)
+#install.packages("dplyr")
+library(dplyr)
+#plotly for map plotting functionality.
 #install.packages("plotly")
 library(plotly)
 
@@ -161,9 +166,9 @@ library(plotly)
 
 #TSV Parsing
 
-#First we download the TSV and convert it into a dataframe, the URL below is what is modified 
-#by the user and will determine the taxa, geographic region, etc.
-#ex: taxon=Aves$geo=all
+#First we download the TSV and convert it into a dataframe. The URL below is what is modified 
+#by the user and will determine the taxon, geographic region, etc.
+#Example: taxon=Aves$geo=all
 
 #read_tsv has been modified to select only certain columns to save on downloading time 
 dfInitial <- read_tsv(
@@ -183,50 +188,52 @@ dfInitial <- read_tsv(
 #                          'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
 #                          'species_taxID','species_name','lat','lon','nucleotides')]
 
-#***Keep in mind you can also save your R workspace to avoid redownloading TSV's***
+#***Keep in mind you can also save your R workspace to avoid redownloading TSV's.***
 
 ##############
 #Dataframe Filtering and Reorganization
 
 colnames(dfInitial)[1] <- "record_id"
 
-#Removing sequences with no latitude values, filtering according to lat since we only really 
-#need lat for the analysis
+#Removing sequences with no latitude values. We are filtering according to lat since we only really 
+#need lat for the analysis.
 containLat <- grep( "[0-9]", dfInitial$lat)
 dfInitial<-dfInitial[containLat,]
 
-#Next we have to convert the lat column to num instead of chr type, this will become important 
-#later on for median latitude determination
+#Next, we have to convert the lat column to num instead of chr type. This will become important 
+#later on for median latitude determination.
 latNum <- with(dfInitial, as.numeric(as.character(lat))) 
 dfInitial$latNum <- latNum
 
-#Can do lon as well for map plotting using plotly
+#We will do lon as well for map plotting using plotly.
 lonNum <- with(dfInitial, as.numeric(as.character(lon))) 
 dfInitial$lonNum <- lonNum
 
-#First identifying missing bins and eliminating rows with missing bin_uri's since bin is 
-#a big indicator of sequence quality
-#Grep by colon since every record with a bin identifier will have this
+#We next identify records missing a BIN assignment and eliminate rows with missing bin_uri's since the presence of a BIN 
+#designation is an indicator of sequence length and quality. As well, we use BINs later in the analysis.
+#This is achieved by using grep by colon, since every record with a BIN identifier will have this.
 containBin <- grep( "[:]", dfInitial$bin_uri)
 dfInitial <- dfInitial[containBin,]
 
-#Getting rid of any records that dont have sequence data (sometimes there are a few)
+#We next get rid of any records that don't have sequence data.
+#(Sometimes there are a few records that bear a BIN but for which the sequence was subsequently deleted. This could occur
+#if a record had a sequence and the record holder later deleted the sequence, e.g. due to suspected contamination.)
 containNucleotides <- grep( "[ACGT]", dfInitial$nucleotides)
 dfInitial <- dfInitial[containNucleotides,]
 
-#Gap content and N content will affect the Clustal Omega alignment and the alignment will give warning messages
-#so we need to filter out sequences with high gap and N content
+#Gap content and N content will affect the Clustal Omega alignment, and the alignment will give warning messages.
+#So, we need to filter out sequences with high gap and N content.
 
 # First, we need to convert nucleotides to chr type.
 dfInitial$nucleotides <- with(dfInitial, (as.character(nucleotides))) 
-# Cut off starting Ns and gaps (large portions of Ns and gaps at the start of a sequence).
+# Cut off starting Ns and gaps (large portions of Ns and gaps occur at the start of a sequence).
 start_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("^[-N]", dfInitial$nucleotides)), length)
 start_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
   if (start_N_gap[[i]] > 0) {
     split <- strsplit(dfInitial$nucleotides[i], "^[-N]+")
     dfInitial$nucleotides[i] <- split[[1]][2]
   }
-# Cut off ending Ns and gaps (large portions of Ns and gaps at the end of a sequence).
+# Cut off ending Ns and gaps (large portions of Ns and gaps occur at the end of a sequence).
 end_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]$", dfInitial$nucleotides)), length)
 end_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
   if (end_N_gap[[i]] > 0) {
@@ -235,7 +242,7 @@ end_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
   }
 # This will give the number of positions where an *internal* N or gap is found for each sequence.
 internal_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]", dfInitial$nucleotides)), length)
-# We then go loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
+# We then loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
 # the total sequence length.
 internal_N_gap <- foreach(i=1:nrow(dfInitial)) %do% 
   which((internal_N_gap[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
@@ -244,13 +251,13 @@ N_gap_check <- which(N_gap_check>0)
 # Subset out these higher gap and N content sequences.
 dfInitial <- dfInitial[-N_gap_check,]
 
-#Filter out sequences less than 620 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment
-#and this also helps to standardize sequence length for the reference sequences.
+#Filter out sequences less than 620 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment,
+#and this also helps to standardize sequence length against the reference sequences, for consistency in subsequent analyses.
 sequenceLengths <- nchar(dfInitial$nucleotides)
 sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<620)
 dfInitial <- dfInitial[-sequenceLengthCheck,]
 
-#Modifying Bin column slightly to remove "BIN:"
+#Modifying BIN column slightly to remove "BIN:"
 dfInitial$bin_uri <- substr(dfInitial$bin_uri, 6 , 13)
 
 #Dataframe Reorganization
@@ -260,56 +267,55 @@ dfInitial <- (dfInitial[,c("record_id","bin_uri","phylum_taxID","phylum_name","c
                            "genus_name","species_taxID","species_name","nucleotides",
                            "latNum","lonNum")])
 ############
-#Bin Stats and Median Latitude/Longitude Determination per bin
+#BIN Stats and Median Latitude/Longitude Determination per BIN
 
-#First we can make a smaller dataframe with the columns we want for each bin - bin_uri,
-#latnum, lonnum, record_id, 
+#First we can make a smaller dataframe with the columns we want for each BIN: bin_uri,
+#latnum, lonnum, record_id, and nucleotides.
 dfBinList <- (dfInitial[,c("record_id","bin_uri","latNum","lonNum","nucleotides")])
 
-#Conversion to absolute values before median latitude values are calculated on dfBinList
+#We convert latitudes to absolute values before median latitude values are calculated on dfBinList.
 dfBinList$latNumAbs <- abs(dfBinList$latNum) 
 
-#Lon remains untouched as it is not needed for the analysis
+#Lon remains untouched as it is not needed for the analysis.
 
-#Create groupings by bin with each grouping representing a different bin_uri
-#Each element of this list represents a bin with subelements representing the various 
-#columns of the initial 
-#dataframe created and the information is grouped by bin 
+#Create groupings by BIN with each grouping representing a different bin_uri.
+#Each element of this list represents a BIN with subelements representing the various 
+#columns of the initial dataframe created, and the information is grouped by BIN. 
 binList <- lapply(unique(dfBinList$bin_uri), function(x) dfBinList[dfBinList$bin_uri == x,])
 
-#Now to determine a median latitude for each bin based on absolute values
+#Now determine the median latitude for each BIN based on absolute values.
 medianLatAbs <- sapply( binList , function(x) median( x$latNumAbs ) )
 
-#median lat for mapping purposes only
+#Calculating median lat based upon the original latitude values, for mapping purposes only.
 medianLatMap <- sapply( binList , function(x) median( x$latNum ) )
 
-#We also need a median longitude for map plotting
+#We also need a median longitude for map plotting.
 medianLon <- sapply( binList , function(x) median( x$lonNum ) )
 
-#we can also take a few other important pieces of data regarding each bin using sapply 
-#including number of record_ids to a bin and latitudinal min and max of each bin
+#We can also take a few other important pieces of data regarding each BIN using sapply, 
+#including number of record_ids within each BIN and the latitudinal min and max of each BIN.
 latMin <- sapply( binList , function(x) min( x$latNum ) )
 latMax <- sapply( binList , function(x) max( x$latNum ) )
 binSize <- sapply( binList , function (x) length( x$record_id ) )
 
-#Dataframe of our median lat values, this will be used in our final dataframe
+#Dataframe of our median lat values. This will be used in our final dataframe.
 dfLatLon <- data.frame(medianLatAbs)
 
-#Adding bin_uri, latMin, latMax and binSize to dataframe with medianLat
+#Adding bin_uri, latMin, latMax and binSize to dataframe with medianLat. (Matt - Here, should this last word be clarified? Is this absolute median latitude or original or both?)
 dfLatLon$bin_uri <- c(unique(dfInitial$bin_uri))
 dfLatLon$medianLon <- c(medianLon)
 dfLatLon$latMin <- c(latMin)
-#Convert to absolute value for latMin and Max
+#Convert to absolute value for latMin and Max. (Matt - Should that latter word be changed to latMax?)
 dfLatLon$latMin <- abs(dfLatLon$latMin)
 dfLatLon$latMax <- c(latMax)
 dfLatLon$latMax <- abs(dfLatLon$latMax)
 dfLatLon$binSize <- c(binSize)
 dfLatLon$medianLatMap <- c(medianLatMap)
 
-#Merging LatLon to BinList for the sequence alignment step
+#Merging LatLon to BinList for the sequence alignment step.
 dfBinList <- merge(dfBinList, dfLatLon, by.x = "bin_uri", by.y = "bin_uri")
 
-#Also reordering dfLatLon by bin_uri for a step later on
+#Also reordering dfLatLon by bin_uri for a step later on.
 dfLatLon <- dfLatLon[order(dfLatLon$bin_uri),]
 
 ###############
