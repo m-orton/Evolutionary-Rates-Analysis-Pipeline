@@ -158,7 +158,10 @@ require(ggplot2)
 #dplyr is required if this is not already installed.
 #install.packages("dplyr")
 library(dplyr)
-#plotly for map plotting functionality.
+#As a pre-requisite package to plotly we need the colorspace package
+#install.packages("colorspace")
+library(colorspace)
+#plotly package used for map plotting functionality.
 #install.packages("plotly")
 library(plotly)
 
@@ -482,6 +485,17 @@ for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
 #Transfer:hhalign/hhalignment-C.h:2968: profile has no leading and/or trailing residues (h=-1:t=0:#=1)
 #Those messages simply indicate a particular sequence being aligned that is flanked by gaps
 #This could take several minutes depending on the taxa
+  
+#To check each alignment and output the alignment to FASTA format, uncomment and run these commands
+#alignment2a <- msaClustalOmega(dnaStringSet2[[1]], verbose=TRUE, help=TRUE)
+#alignment2a <- DNAStringSet(alignment2a)
+#writeXStringSet(alignment2a, file="alignment2a.fas", format="fasta", width=1500)
+
+#alignment2b <- msaClustalOmega(dnaStringSet2[[2]])
+#alignment2b <- DNAStringSet(alignment2b)
+#writeXStringSet(alignment2b, file="alignment2b.fas", format="fasta", width=1500)
+
+#Alignment of both orders:
 alignment2 <- foreach(i=1:nrow(dfRefSeq)) %do% msaClustalOmega(dnaStringSet2[[i]])
 
 ##############
@@ -505,6 +519,12 @@ refSeqPosEnd <- as.numeric(refSeqPosEnd)
 
 #Then we can substr the alignment by these positions to effectively trim the alignment
 alignment2Trim <- foreach(i=1:nrow(dfRefSeq)) %do% substr(alignment2[[i]], refSeqPosStart[i]+1, refSeqPosEnd[i])
+  
+#To check the trimmed alignment for each order and output to FASTA format, uncomment and run these commands
+#alignment2Trima <- DNAStringSet(alignment2Trim[[1]]) 
+#writeXStringSet(alignment2Trima, file="alignment2Trima.fas", format="fasta", width=658)
+#alignment2Trimb <- DNAStringSet(alignment2Trim[[2]])
+#writeXStringSet(alignment2Trimb, file="alignment2Trimb.fas", format="fasta", width=658)
 
 #Again convert to dnaStringSet format
 dnaStringSet3 <- sapply( alignment2Trim, function(x) DNAStringSet( x ) )
