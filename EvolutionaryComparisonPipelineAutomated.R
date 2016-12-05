@@ -1,7 +1,7 @@
 #################
 #Authored primarily by Matthew Orton
-#Contribution by Jacqueline May for lines 220-246 of script 
-#Contributions by David Lee for lines 1148-1169, editing and formatting of script
+#Contribution by Jacqueline May for lines 227-254 of script 
+#Contributions by David Lee for lines 1210-1233, editing and formatting of script
 #Contributions by Winfield Ly for editing and formatting of script
 #Collaboration of Sarah Adamowicz (University of Guelph) in designing the analyses
 
@@ -35,8 +35,6 @@
 
 #Larger taxa consume a great deal of working memory, so be mindful of the amount of available working memory you have available on your 
 #PC/Mac.
-#As a benchmark, the class Actinopterygii, which contains roughly 250000 unique entries on BOLD, consumes close to 3.4 Gb of working memory
-#to run.
 #It's probably a good idea to ensure RStudio is the only major application running when you run the script.
 
 #Entries on BOLD which do not at least have class-level classification will be filtered out 
@@ -79,7 +77,7 @@
 #dfRelativeDist shows the relative distances to the outgroup for each pairing, including pseudoreplicates.
 
 #dfPairingResultsL1L2 is the more detailed finalized dataframe that contains all of the finalized pairings
-#and outgroupings.
+#and outgroupings and all relevant details for them.
 
 #dfPairingResultsL1 and dfPairingResultsL2 represent dataframes for each lineage of each pairing respectively.
 
@@ -100,22 +98,21 @@
 #bin_uri's and distances.
 
 #dfRefSeq shows various taxa with a suitable reference sequence that has been found for them.
-#This dataframe may be broken up into dfRefSeqOrder and dfRefSeqLargeOrder if there are very large orders that need to be broken
-#down to families.
 
 #dfPseudoRepAverage shows the averaged distances for each set of pseudoreplicates in dfPseudoRep.
 
 ##################
 #Important Variables
 
-#alignment2 will show the alignment of class.
-#(For example, typing alignment2[1] will show the first alignment performed.)
-#It is important always to check this variable to ensure the alignment is producing a 
-#reasonable result.
+#alignmentFinal will show a final alignment of each class.
+#(For example, typing alignmentFinal[1] will show the first alignment performed.)
+#Note that the console will not show the full alignment, to view the full alignment you must convert and export to FASTA format.
+#To export and view the full alignment to FASTA format, please see the commands in the Final Alignment section of the code
 
-#alignment2Trim will show the trimmed sequences after alignment
-#with the reference and trimming to the reference sequence length.
-#Again, it is good practice to check this to make sure the result is reasonable.
+#alignmentFinalTrim will show a final alignment of each class that is also trimmed by the reference sequence.
+#(For example, typing alignmentFinal[1] will show the first alignment performed.)
+#Note that the console will not show the full alignment, to view the full alignment you must convert to FASTA format.
+#To export and view the full alignment to FASTA format, please see the commands in the Final Alignment section of the code
 
 #binomialTestOutGroup shows the results of the binomial test.
 
@@ -138,18 +135,17 @@ library(ape)
 #Speeds up parsing of the tsv file using the read_tsv function.
 #install.packages("readr")
 library(readr)
-#For sequence alignments we need the biostrings (DNAStringSet function) and msa packages, as follows:
+#For sequence alignments we need the biostrings (DNAStringSet function) and muscle libraries, as follows:
 #source("https://bioconductor.org/biocLite.R")
 #biocLite("Biostrings")
 library("Biostrings")
-#biocLite("msa")
-library("msa")
+library(muscle)
 #For the calculation of overlapping latitude regions we need the Desctools package. 
 #The Desctools package allows us to use the Overlap function which can calculate overlap regions between bins based on 
 #the maximum and minimum latitudinal ranges of each bin.
 #install.packages("DescTools")
 library(DescTools)
-#Adding the data tables package for data table merging of outgroup bin data with pairing results bin data in the outgroup section. 
+#Adding the data tables package for data table merging of outgroup bin data with pairing results bin data in the pairing result section. 
 #install.packages("data.table")
 library(data.table)
 #For plotting of relative outgroup distances between lineages we will also need ggplot2.
@@ -168,7 +164,8 @@ library(plotly)
 #################
 #R Commands:
 
-#TSV Parsing
+#Section 1: TSV Parsing
+#In this section the intial TSV of the desired taxon is parsed from the BOLD database API.
 
 #First we download the TSV and convert it into a dataframe. The URL below is what is modified 
 #by the user and will determine the taxon, geographic region, etc.
@@ -177,10 +174,10 @@ library(plotly)
 #read_tsv has been modified to select only certain columns to save on downloading time 
 dfInitial <- read_tsv(
   "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Annelida&geo=all&format=tsv")[ ,
-                                              c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
-                                                'class_name','order_taxID','order_name','family_taxID','family_name',
-                                                'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
-                                                'species_taxID','species_name','lat','lon','nucleotides')]
+                                                                                                 c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
+                                                                                                   'class_name','order_taxID','order_name','family_taxID','family_name',
+                                                                                                   'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
+                                                                                                   'species_taxID','species_name','lat','lon','nucleotides')]
 
 #If you want to run pre downloaded BOLD TSV's to avoid downloading of the same tsv multiple times, 
 #this will let you choose a path to that TSV and parse:
@@ -195,7 +192,9 @@ dfInitial <- read_tsv(
 #***Keep in mind you can also save your R workspace to avoid redownloading TSV's.***
 
 ##############
-#Dataframe Filtering and Reorganization
+#Section 2: Dataframe Filtering and Reorganization
+#In this section, the dataframe is filtered according to latitude, sequence quality and length.
+#The initial dataframe is also reorganized.
 
 colnames(dfInitial)[1] <- "record_id"
 
@@ -225,29 +224,28 @@ dfInitial <- dfInitial[containBin,]
 containNucleotides <- grep( "[ACGT]", dfInitial$nucleotides)
 dfInitial <- dfInitial[containNucleotides,]
 
-#Gap content and N content will affect the Clustal Omega alignment, and the alignment will give warning messages.
-#So, we need to filter out sequences with high gap and N content.
+#Next Filtering out high gap content and N content to ensure high sequence quality
 
-# First, we need to convert nucleotides to chr type.
+#First, we need to convert nucleotides to chr type.
 dfInitial$nucleotides <- with(dfInitial, (as.character(nucleotides))) 
-# Cut off starting Ns and gaps (large portions of Ns and gaps occur at the start of a sequence).
+#Cut off starting Ns and gaps (large portions of Ns and gaps occur at the start of a sequence).
 start_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("^[-N]", dfInitial$nucleotides)), length)
 start_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
   if (start_N_gap[[i]] > 0) {
     split <- strsplit(dfInitial$nucleotides[i], "^[-N]+")
     dfInitial$nucleotides[i] <- split[[1]][2]
   }
-# Cut off ending Ns and gaps (large portions of Ns and gaps occur at the end of a sequence).
+#Cut off ending Ns and gaps (large portions of Ns and gaps occur at the end of a sequence).
 end_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]$", dfInitial$nucleotides)), length)
 end_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
   if (end_N_gap[[i]] > 0) {
     split <- strsplit(dfInitial$nucleotides[i], "[-N]+$")
     dfInitial$nucleotides[i] <- split[[1]][1]
   }
-# This will give the number of positions where an *internal* N or gap is found for each sequence.
+#This will give the number of positions where an *internal* N or gap is found for each sequence.
 internal_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]", dfInitial$nucleotides)), length)
-# We then loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
-# the total sequence length.
+#We then loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
+#the total sequence length.
 internal_N_gap <- foreach(i=1:nrow(dfInitial)) %do% 
   which((internal_N_gap[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
 N_gap_check <- sapply( internal_N_gap , function (x) length( x ) )
@@ -271,7 +269,9 @@ dfInitial <- (dfInitial[,c("record_id","bin_uri","phylum_taxID","phylum_name","c
                            "genus_name","species_taxID","species_name","nucleotides",
                            "latNum","lonNum")])
 ############
-#BIN Stats and Median Latitude/Longitude Determination per BIN
+#Section 3: BIN Stats and Median Latitude/Longitude Determination per BIN
+#In this section, the median latitude is determined for each bin as well as other important pieces of information including
+#number of record_ids within each BIN and the latitudinal min and max of each BIN.
 
 #First we can make a smaller dataframe with the columns we want for each BIN: bin_uri,
 #latnum, lonnum, record_id, and nucleotides.
@@ -325,8 +325,11 @@ dfBinList <- merge(dfBinList, dfLatLon, by.x = "bin_uri", by.y = "bin_uri")
 dfLatLon <- dfLatLon[order(dfLatLon$bin_uri),]
 
 ###############
-#Selecting a Centroid Sequence Per Bin
-#Centroid Sequence: bin sequence with minimum average pairwise distance to all other bin sequences in a given bin
+#Section 4: Selecting a Centroid Sequence Per BIN
+#A single barcode identification number (BIN) can contain many record ids and sequences.
+#In order to simplify the analyses we select one sequence per BIN.
+#To do this we are determining the centroid sequence for each BIN.
+#Centroid Sequence: BIN sequence with minimum average pairwise distance to all other BIN sequences in a given BIN.
 
 #First we have to subset dfBinList to find bins with more than one member since these bins will need centroid sequences
 largeBin <-which(dfBinList$binSize > 1)
@@ -360,17 +363,11 @@ if(length(largeBin) >0){
     names(dnaStringSet1[[i]]) <- largeBinRecordId[[i]]
   }
   
-  #Multiple sequence alignment using msa package - 3 different algorithms can be used for this: ClustalW, ClustalOmega, MUSCLE 
-  #Sequence alignment package can be found here: 
-  #http://master.bioconductor.org/packages/3.2/bioc/vignettes/msa/inst/doc/msa.pdf
-  #Using the default parameters of ClustalOmega, 
-  #the default of Clustal Omega is known as "Gonnet", you will see this as an output in the console
-  #Sometimes you may see this message during this alignment: 
-  #Transfer:hhalign/hhalignment-C.h:2968: profile has no leading and/or trailing residues (h=-1:t=0:#=1)
-  #Those messages simply indicates a particular sequence being aligned that 
-  #is flanked by gaps hence "no leading or trailing residues"
+  #Multiple sequence alignment using the muscle package
+  #Refer here for details on package: http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
   #Run a multiple sequence alignment on each element of the dnaStringSet1 list
-  alignment1 <- foreach(i=1:binNumberCentroid) %do% msaClustalOmega(dnaStringSet1[[i]])
+  #Using default settings of Muscle for now
+  alignment1 <- foreach(i=1:binNumberCentroid) %do% muscle(dnaStringSet1[[i]])
   
   #We can then convert each alignment to DNAbin format
   dnaBINCentroid <- foreach(i=1:binNumberCentroid) %do% as.DNAbin(alignment1[[i]])
@@ -403,7 +400,7 @@ if(length(largeBin) >0){
                            "medianLon")])
   colnames(dfAllSeq)[1] <- "bin_uri"
   colnames(dfAllSeq)[18] <- "nucleotides"
-  #Adding an index column to reference later with Match overall dataframe
+  #Adding an index column to reference later with Pairing Results dataframe
   dfAllSeq$ind <- row.names(dfAllSeq)
   #Deleting any possible duplicate entries
   dfAllSeq <- (by(dfAllSeq, dfAllSeq["bin_uri"], head, n=1))
@@ -427,7 +424,10 @@ rm(dfBinList)
 rm(dfLatLon)
 
 #############
-#Multiple Sequence Alignment of Sequences with Reference Sequence and Beginning of Automation by Class
+#Section 5: Creation of Reference Sequence Dataframe
+#In this section we establish reference sequences that will be used in the final alignment for approprate trimming of the alignment
+#to a standard sequence length of 620 bp.
+#These reference sequences are manually curated from the literature ensuring high sequence quality and are specific to the taxon being analyzed.
 
 #Manual input of reference sequences into dfRefSeq dataframe
 dfRefSeq <- data.frame(taxa = c("Clitellata","Polychaeta"),
@@ -444,26 +444,96 @@ dfRefSeq$seqLength <- nchar(dfRefSeq$nucleotides)
 
 #Subset dfAllSeq by entries in the reference sequence dataframe
 dfAllSeq <- subset(dfAllSeq, dfAllSeq$class_name %in% dfRefSeq$taxa)
-    
-#Break dfAllSeq down into the various classes, could be edited for orders instead
+
+#Break dfAllSeq down into the various classes
 taxaListComplete <- lapply(unique(dfAllSeq$class_taxID), function(x) dfAllSeq[dfAllSeq$class_taxID == x,])
-    
+
 #Revise dfRefSeq dataframe to reflect this
 classList <- sapply( taxaListComplete , function(x) unique( x$class_name ) )
 #This command will ensure the reference sequence dataframe is in the same order as the allseq dataframe
 dfRefSeq <- dfRefSeq[match(classList, dfRefSeq$taxa),]
-    
+
+##############
+#Section 6: Preliminary Alignment with Muscle and Pairwise Distance Matrix with the TN93 Model to Identify and Remove Divergent Sequences
+#In this section we want to eliminate sequences that are too divergent in pairwise distance by doing an initial alignment and distance matrix.
+#Using the Muscle alignment algorithm and the TN93 model.
+#This ensures the final alignment will only be using sequences that are closely related to one another in pairwise distance.
+
+#Extraction of Sequences from taxalist for the alignment
+classSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
+#Extraction of Bins from taxalist for the alignment
+classBin <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
+#Conversion to DNAStringSet format
+dnaStringSet2 <- sapply( classSequences, function(x) DNAStringSet( x ) )
+
+#Naming the DNAStringSet with the appropriate bin_uri's
+for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
+  names(dnaStringSet2[[i]]) <- classBin[[i]]
+}
+
+#Multiple sequence alignment using muscle package on the dnaStringSet2 list for each class
+#Refer here for details on package: http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
+#This could take several minutes to hours depending on the taxa.
+#Using default settings of package, the muscle command can detect DNA is being used and align accordingly.
+alignment2 <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet2[[i]])
+
+#To check each preliminary alignment (each class) and output the preliminary alignment to FASTA format, uncomment and run these commands
+#You can also rename the FASTA file if you prefer
+
+#Polychaeta
+alignmentPrelima <- muscle(dnaStringSet2[[1]])
+alignmentPrelima <- DNAStringSet(alignmentPrelima)
+writeXStringSet(alignmentPrelima, file="alignmentPrelima.fas", format="fasta", width=1500)
+#Clitellata
+alignmentPrelimb <- muscle(dnaStringSet2[[2]])
+alignmentPrelimb <- DNAStringSet(alignmentPrelimb)
+writeXStringSet(alignmentPrelimb, file="alignmentPrelimb.fas", format="fasta", width=1500)
+
+#Conversion to DNAbin format before using pairwise distance matrix
+dnaBIN <- foreach(i=1:length(taxaListComplete)) %do% as.DNAbin(alignment2[[i]])
+
+#Details on each model can be found here: 
+#http://www.inside-r.org/packages/cran/ape/docs/dist.dna
+#Using the TN93 model for our data
+matrixGeneticDistance <- foreach(i=1:length(taxaListComplete)) %do% 
+  dist.dna(dnaBIN[[i]], model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+
+#Coversion to dataframe format
+geneticDistanceMatrixList <- foreach(i=1:length(taxaListComplete)) %do%  as.data.frame(matrixGeneticDistance[i])
+
+#Putting it into a stack (each column concatenated into one long column of indexes and values)
+#so it can be easily subsetted
+geneticDistanceStackList <- foreach(i=1:length(taxaListComplete)) %do% stack(geneticDistanceMatrixList[[i]])
+#Identification and removal of divergent sequences, a divergent sequence being one that is greater than 0.15 
+#in pairwise distance to all other sequences:
+
+#Finding all sequences between 0.15 and 0 distance
+#This command will remove divergent sequences which do not have pairwise distances between 0.15 and 0
+divergentSequencesRemove <- foreach(i=1:length(taxaListComplete)) %do% which(geneticDistanceMatrixList[[i]]<=0.15 & geneticDistanceMatrixList[[i]]>0)
+#Subsetting the distance stack by bins meeting this criteria
+divergentSequencesRemove <- foreach(i=1:length(taxaListComplete)) %do% geneticDistanceStackList[[i]][c(divergentSequencesRemove[[i]]),]
+#Grabbing all bins from this stack that meet this criteria and converting to character type
+divergentSequencesRemove <- foreach(i=1:length(taxaListComplete)) %do% as.character(unique(divergentSequencesRemove[[i]]$ind))
+
+###############
+#Section 7: Finalized Alignment with Addition of Reference Sequence
+#In this section we can perform the final alignment after divergent sequences have been removed with the addition of a reference sequence.
+
+#Subset taxalist by bins meeting 0.15 criteria so no divergent sequences are present
+taxaListComplete <- foreach(i=1:length(taxaListComplete)) %do% 
+          subset(taxaListComplete[[i]], taxaListComplete[[i]]$bin_uri %in% divergentSequencesRemove[[i]])
+
 #Extract sequences and bin_uri from each class
 classBin <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
 classSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
 classSequencesNames <- classBin
-    
+
 #Take our reference sequences
 alignmentRef <- as.character(dfRefSeq$nucleotides)
 dfRefSeq$reference <- "reference"
 #Name our reference as reference for each class so it can be identified as such in the alignment
 alignmentRefNames <- dfRefSeq$reference
-    
+
 #Merge our reference sequences with each of our class sequences
 alignmentSequencesPlusRef <- mapply(c, classSequences, alignmentRef)
 #Merge the names together
@@ -471,42 +541,40 @@ alignmentNames <- mapply(c, classSequencesNames, alignmentRefNames)
 
 #Converting all sequences in dfAllSeq plus reference to DNAStringSet format, this is 
 #the format required for the alignment
-dnaStringSet2 <- sapply( alignmentSequencesPlusRef, function(x) DNAStringSet( x ) )
+dnaStringSet3 <- sapply( alignmentSequencesPlusRef, function(x) DNAStringSet( x ) )
 
 #Name the DNAStringSet List with the appropriate bin uri's
 for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
-  names(dnaStringSet2[[i]]) <- alignmentNames[[i]]
+  names(dnaStringSet3[[i]]) <- alignmentNames[[i]]
 }
 
-#Run a multiple sequence alignment of all sequences including the reference
-#Using default settings of ClustalOmega of the msa package to speed up the alignment, 
-#again default scoring matrix for Clustal Omega is known as "Gonnet"
-#Sometimes you may see this message during this alignment: 
-#Transfer:hhalign/hhalignment-C.h:2968: profile has no leading and/or trailing residues (h=-1:t=0:#=1)
-#Those messages simply indicate a particular sequence being aligned that is flanked by gaps
-#This could take several minutes depending on the taxa
-  
-#To check each alignment and output the alignment to FASTA format, uncomment and run these commands
-#alignment2a <- msaClustalOmega(dnaStringSet2[[1]], verbose=TRUE, help=TRUE)
-#alignment2a <- DNAStringSet(alignment2a)
-#writeXStringSet(alignment2a, file="alignment2a.fas", format="fasta", width=1500)
+#Multiple sequence alignment using muscle package on each element of the dnaStringSet2 list for each class
+#Refer here for details on package: http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
+#This could take several minutes to hours depending on the taxa, using default parameters, muscle will detect DNA is being used and will align accordingly
+alignmentFinal <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet3[[i]])
 
-#alignment2b <- msaClustalOmega(dnaStringSet2[[2]])
-#alignment2b <- DNAStringSet(alignment2b)
-#writeXStringSet(alignment2b, file="alignment2b.fas", format="fasta", width=1500)
+#To check each final alignment (each class) and output the final alignment (before trimming) to FASTA format, uncomment and run these commands
+#You can also rename the FASTA file if you prefer
 
-#Alignment of both orders:
-alignment2 <- foreach(i=1:nrow(dfRefSeq)) %do% msaClustalOmega(dnaStringSet2[[i]])
+#Polychaeta
+alignmentFinala <- muscle(dnaStringSet3[[1]])
+alignmentFinala <- DNAStringSet(alignmentFinala)
+writeXStringSet(alignmentFinala, file="alignmentFinala.fas", format="fasta", width=1500)
+#Clitellata
+alignmentFinalb <- muscle(dnaStringSet3[[2]])
+alignmentFinalb <- DNAStringSet(alignmentFinalb)
+writeXStringSet(alignmentFinalb, file="alignmentFinalb.fas", format="fasta", width=1500)
 
 ##############
-#Sequence Trimming according to the Reference Sequence
+#Section 8: Sequence Trimming of Finalized Alignment according to the Reference Sequence
+#In this section, the final alignment generated is now trimmed according to the position of the reference in the alignment.
 
 #For trimming of the sequences we have to determine where in the alignment the 
 #reference sequence is and determine its start and stop positions relative to the
 #other sequences we can then use these positions to trim the rest of the sequences 
 #in the alignment
-refSeqPos <- foreach(i=1:nrow(dfRefSeq)) %do% which(alignment2[[i]]@unmasked@ranges@NAMES == "reference")
-refSeqPos <- foreach(i=1:nrow(dfRefSeq)) %do% alignment2[[i]]@unmasked[refSeqPos[[i]]]
+refSeqPos <- foreach(i=1:nrow(dfRefSeq)) %do% which(alignmentFinal[[i]]@unmasked@ranges@NAMES == "reference")
+refSeqPos <- foreach(i=1:nrow(dfRefSeq)) %do% alignmentFinal[[i]]@unmasked[refSeqPos[[i]]]
 
 #Finding start position by searching for the first nucleotide position of the 
 #reference sequence
@@ -518,71 +586,73 @@ refSeqPosEnd <- foreach(i=1:nrow(dfRefSeq)) %do% (nchar(dfRefSeq$nucleotides[i])
 refSeqPosEnd <- as.numeric(refSeqPosEnd)
 
 #Then we can substr the alignment by these positions to effectively trim the alignment
-alignment2Trim <- foreach(i=1:nrow(dfRefSeq)) %do% substr(alignment2[[i]], refSeqPosStart[i]+1, refSeqPosEnd[i])
-  
-#To check the trimmed alignment for each order and output to FASTA format, uncomment and run these commands
-#alignment2Trima <- DNAStringSet(alignment2Trim[[1]]) 
-#writeXStringSet(alignment2Trima, file="alignment2Trima.fas", format="fasta", width=658)
-#alignment2Trimb <- DNAStringSet(alignment2Trim[[2]])
-#writeXStringSet(alignment2Trimb, file="alignment2Trimb.fas", format="fasta", width=658)
+alignmentFinalTrim <- foreach(i=1:nrow(dfRefSeq)) %do% substr(alignmentFinal[[i]], refSeqPosStart[i]+1, refSeqPosEnd[i])
+
+#To check the trimmed alignment for each class and output to FASTA format, uncomment and run these commands
+
+#Polychaeta
+alignmentFinalTrima <- DNAStringSet(alignmentFinalTrim[[1]]) 
+writeXStringSet(alignmentFinalTrima, file="alignmentFinalTrima.fas", format="fasta", width=658)
+#Clitellata
+alignmentFinalTrimb <- DNAStringSet(alignmentFinalTrim[[2]])
+writeXStringSet(alignmentFinalTrimb, file="alignmentFinalTrimb.fas", format="fasta", width=658)
 
 #Again convert to dnaStringSet format
-dnaStringSet3 <- sapply( alignment2Trim, function(x) DNAStringSet( x ) )
+dnaStringSet4 <- sapply( alignmentFinalTrim, function(x) DNAStringSet( x ) )
 
 #Remove our reference sequence from this as we dont want this to be included in further analysis
-refSeqRemove <- foreach(i=1:nrow(dfRefSeq)) %do% which(dnaStringSet3[[i]]@ranges@NAMES == "reference")
-dnaStringSet3 <- foreach(i=1:nrow(dfRefSeq)) %do% subset(dnaStringSet3[[i]][-refSeqRemove[[i]]])
-alignment2Trim <- foreach(i=1:nrow(dfRefSeq)) %do% alignment2Trim[[i]][-refSeqRemove[[i]]]
+refSeqRemove <- foreach(i=1:nrow(dfRefSeq)) %do% which(dnaStringSet4[[i]]@ranges@NAMES == "reference")
+dnaStringSet4 <- foreach(i=1:nrow(dfRefSeq)) %do% subset(dnaStringSet4[[i]][-refSeqRemove[[i]]])
+alignmentFinalTrim <- foreach(i=1:nrow(dfRefSeq)) %do% alignmentFinalTrim[[i]][-refSeqRemove[[i]]]
 
 ###############
-#Pairwise Distance Determination with TN93
+#Section 9: Pairwise Distance Determination with the TN93 Model of Finalized Alignment
+#In this section we do the final pairwise distance determination step before initial pairing results can be determined using the
+#TN93 model of pairwise distance determination.
 
 #Conversion to DNAbin format before using genetic distance matrix
-dnaBIN <- foreach(i=1:length(taxaListComplete)) %do% as.DNAbin(dnaStringSet3[[i]])
+dnaBIN2 <- foreach(i=1:length(taxaListComplete)) %do% as.DNAbin(dnaStringSet4[[i]])
 
-#Now for the computation of genetic distance, several models can be used - "raw", 
-#"N", "TS", "TV", "JC69", "K80" (the default), 
-#"F81", "K81", "F84", "BH87", "T92", "TN93", "GG95", "logdet"
-#Details on each model can be found here: 
-#http://www.inside-r.org/packages/cran/ape/docs/dist.dna
-#Using the TN93 model for our data
-matrixGeneticDistance <- foreach(i=1:length(taxaListComplete)) %do% 
-  dist.dna(dnaBIN[[i]], model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+#Once again using the TN93 model for pairwise distance computation, this time from the 3rd alignment after divergent sequences
+#have been removed and after trimming according to the reference sequences
+matrixGeneticDistance2 <- foreach(i=1:length(taxaListComplete)) %do% 
+  dist.dna(dnaBIN2[[i]], model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
 
 #convert to dataframe
-geneticDistanceMatrixList <- foreach(i=1:length(taxaListComplete)) %do%  as.data.frame(matrixGeneticDistance[i])
+geneticDistanceMatrixList2 <- foreach(i=1:length(taxaListComplete)) %do%  as.data.frame(matrixGeneticDistance2[i])
 
-#Putting it into a stack (each column concatenated into one long column of indexes and values) 
+#Putting it into a stack (each column concatenated into one long column of indexes and values 
 #so it can be easily subsetted
-geneticDistanceStackList <- foreach(i=1:length(taxaListComplete)) %do% stack(geneticDistanceMatrixList[[i]])
+geneticDistanceStackList2 <- foreach(i=1:length(taxaListComplete)) %do% stack(geneticDistanceMatrixList2[[i]])
 
 ################
-#Finding appropriate pairings according to genetic distance criteria (latitude done further down in script)
-#and dividing based on lineage
+#Section 10: Finding appropriate pairings according to genetic distance criteria
+#In this section we use the genetic distance criteria of 0.15 to establish our preliminary pairing results and divide the pairing results into
+#two separate lineages.
 
 #These values can easily be edited to add more or less stringency to the matches
 #Will produce lists with indexes (bins, row and column names) of each match according to genetic distance criteria of 0.15
-pairingResultCandidates <- foreach(i=1:length(taxaListComplete)) %do% which(geneticDistanceMatrixList[[i]]<=0.15)
+pairingResultCandidates <- foreach(i=1:length(taxaListComplete)) %do% which(geneticDistanceMatrixList2[[i]]<=0.15)
 
-#Next we can delete the orders that dont have any pairings
+#Next we can delete the classes that dont have any pairings
 pairingResultCheck <- foreach(i=1:length(taxaListComplete)) %do% which(length(pairingResultCandidates[[i]]) == 0)
 pairingResultCheck <- which(pairingResultCheck>0)
 #Subset taxalistcomplete, geneticDistance, pairingResultCandidate, dnaStringSet lists according to pairingResultCheck
 #so that we arent keeping classes without pairings in these lists
 if(length(pairingResultCheck>0)){
   taxaListComplete <- taxaListComplete[-pairingResultCheck]
-  geneticDistanceStackList <- geneticDistanceStackList[-pairingResultCheck]
+  geneticDistanceStackList2 <- geneticDistanceStackList[-pairingResultCheck]
   pairingResultCandidates <- pairingResultCandidates[-pairingResultCheck]
-  dnaStringSet3 <- dnaStringSet3[-pairingResultCheck]
+  dnaStringSet4 <- dnaStringSet4[-pairingResultCheck]
 }
 
 #Use these pairing results and reference against the genetic distance stack list to subset it
 pairingResultCandidates2 <- foreach(i=1:length(taxaListComplete)) %do% 
-    geneticDistanceStackList[[i]][c(pairingResultCandidates[[i]]),]
+  geneticDistanceStackList2[[i]][c(pairingResultCandidates[[i]]),]
 #this command will grab the precise row and column numbers of each pairing so they can be used to determine a unique identifier
 #for each pairing
 pairingResultCandidates3 <- foreach(i=1:length(taxaListComplete)) %do%
-    data.table(which(geneticDistanceMatrixList[[i]]<=0.15, arr.ind = TRUE))
+  data.table(which(geneticDistanceMatrixList2[[i]]<=0.15, arr.ind = TRUE))
 
 #Merge pairingResultCandidate list 2 and 3 together and combine into the pairing results dataframe
 dfPairingResultsL1L2 <- do.call(rbind, Map(data.frame, pairingResultCandidates2, pairingResultCandidates3))
@@ -633,10 +703,10 @@ colnames(dfPairingResultsL1L2)[26] <- "indexNo"
 dfPairingResultsL1L2$index <- seq.int(nrow(dfPairingResultsL1L2))
 
 #Merge aligned and trimmed nucleotide sequences with pairing candidates, replacing raw sequences from intial tsv
-alignment2TrimUnlist <- unlist(alignment2Trim)
+alignmentFinalTrimUnlist <- unlist(alignmentFinalTrim)
 #New dataframe with trimmed and aligned sequences
-dfTrimmedSeq <- data.frame(alignment2TrimUnlist)
-dfTrimmedSeq$bin_uri <- names(alignment2TrimUnlist)
+dfTrimmedSeq <- data.frame(alignmentFinalTrimUnlist)
+dfTrimmedSeq$bin_uri <- names(alignmentFinalTrimUnlist)
 colnames(dfTrimmedSeq)[1] <- "trimmedNucleotides"
 
 #merge sequences to dfPairingResultsL1L2
@@ -661,8 +731,10 @@ dfPairingResultsL1 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2==0,]
 dfPairingResultsL2 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2>0,]
 
 ##############
-#Eliminating Pairings based on Latitude Difference and Overlapping Latitudinal Range
-#This section may take a few mins to process
+#Section 11: Eliminating Pairings based on Latitude Difference and Overlapping Latitudinal Range
+#In this section we eliminate pairings which do not have the minimum of 20 degress latitude separation.
+#We also eliminate pairings which have latitudinal range overlap of greater than 25%.
+#This section may take a few mins to process.
 
 #Determing latitude difference between pairings
 latitudeDiffCheck <- foreach(i=1:nrow(dfPairingResultsL1)) %do% 
@@ -744,7 +816,10 @@ if(length(overlapIndTotal)>0){
 }
 
 ################
-#Ensuring Every Pairing is a unique set of bins
+#Section 12: Ensuring Every Pairing is a unique set of bins
+#In this section we want to eliminate duplicate bins in the pairing results.
+#Each bin represented should be the lowest ingroup distance it has in a pairing since pairings are ordered by distance.
+#Pairings are also numbered based on ordering from lowest ingroup distance to highest.
 
 #Once again order by ingroup distance
 dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupDist),]
@@ -767,15 +842,13 @@ dfPairingResultsL2 <- dfPairingResultsL2[order(dfPairingResultsL2$inGroupDist),]
 dfPairingResultsL2$inGroupPairing <- 1:nrow(dfPairingResultsL2)
 
 ################
-#Outgroup determination for each Pairing
-
-#Now we can search for the best possible outgroupings for each pairing
-#This will involve searching for outgroups relative to each pairing and finding one that
-#is far enough away from both lineages (1.3x criteria)
+#Section 13: Outgroup determination for each Pairing
+#In this section, we use the 1.3x divergence criteria to establish a distance range for outgroups.
+#Outgroup bins are then determined based on this divergence criteria.
 
 #Fist we can take all genetic distance values from each distance matrix and concatenate them into one
 #stack of values to be easily subsetted from
-dfGeneticDistanceStack <- do.call(rbind, geneticDistanceStackList)
+dfGeneticDistanceStack <- do.call(rbind, geneticDistanceStackList2)
 
 #Then we can search for outgroupings relative to lineage 1
 #We can use the bin_uri's to subset the dfGeneticDistanceStackList according to 
@@ -802,7 +875,7 @@ outGroupCandidatesL1c <- mapply(intersect,outGroupCandidatesL1a,outGroupCandidat
 outGroupCandidatesL1c <- unlist(outGroupCandidatesL1c)
 #Adding an rownum column to dfBestOutGroup, this represents the second index of 
 #each outgroup candidate
-dfOutGroupL1$rownum<-seq.int(nrow(dfOutGroupL1))
+dfOutGroupL1$rownum <- seq.int(nrow(dfOutGroupL1))
 #Then we can subset to rownum column based on the outgroup candidates
 dfOutGroupL1 <- dfOutGroupL1[dfOutGroupL1$rownum %in% 
                                outGroupCandidatesL1c, ]
@@ -811,13 +884,23 @@ dfOutGroupL2 <- subset(dfGeneticDistanceStack, dfGeneticDistanceStack$ind %in%
                          dfPairingResultsL2$bin_uri)
 dfOutGroupL2 <- dfOutGroupL2[order(match(dfOutGroupL2[,2],
                                          dfPairingResultsL2[,3])),]
+
+#Find which bins in the outgroup genetic distances match the bins in the pairing results
 outGroupCandidatesL2a <- foreach(i=1:nrow(dfPairingResultsL2)) %do% 
   which(dfOutGroupL2$ind == dfPairingResultsL2$bin_uri[i])
+
+#Find which outgroups meet the 1.3x criteria
 outGroupCandidatesL2b <- foreach(i=1:nrow(dfPairingResultsL2)) %do% 
   which(dfOutGroupL2$values >= dfPairingResultsL2$inGroupDistx1.3[i])
+
+#Intersection of the two using mapply to find the correct outgroupings for each pairing
 outGroupCandidatesL2c <- mapply(intersect,outGroupCandidatesL2a,outGroupCandidatesL2b)
+#Unlist to make into one vector 
 outGroupCandidatesL2c <- unlist(outGroupCandidatesL2c)
+#Adding an rownum column to dfBestOutGroup, this represents the second index of 
+#each outgroup candidate
 dfOutGroupL2$rownum <- seq.int(nrow(dfOutGroupL2))
+#Then we can subset to rownum column based on the outgroup candidates
 dfOutGroupL2 <- dfOutGroupL2[dfOutGroupL2$rownum %in% 
                                outGroupCandidatesL2c, ]
 
@@ -884,20 +967,20 @@ colnames(dfOutGroupL2)[3] <- "associatedInGroupBin"
 rm(dfOutGroupMerge)
 rm(dfTrimmedSeq)
 
-#Some classes may not have any viable outgroupings so we can filter those out
+#Some pairings may not have any viable outgroupings so we can filter those out
 noOutGroupCheck <- setdiff(dfPairingResultsL1$bin_uri, dfOutGroupL1$associatedInGroupBin)
-noOutGroupCheck <- foreach(i=1:length(noOutGroupCheck)) %do% which(dfPairingResultsL1$bin_uri == noOutGroupCheck[[i]])
-noOutGroupCheck <- unlist(noOutGroupCheck)
 
-#If there is at least one pairing without an outgroup then subset pairing dataframes by those pairings
+#If there is at least one pairing without an outgroup then subset pairing results dataframes by those pairings
 if(length(noOutGroupCheck)>0){
+  noOutGroupCheck <- foreach(i=1:length(noOutGroupCheck)) %do% which(dfPairingResultsL1$bin_uri == noOutGroupCheck[[i]])
+  noOutGroupCheck <- unlist(noOutGroupCheck)
   #subsetting Lineage 1 by this outgroup check
   dfPairingResultsL1 <- dfPairingResultsL1[-noOutGroupCheck,]
   #Now subsetting Lineage 2 by this outgroup check
   dfPairingResultsL2 <- dfPairingResultsL2[-noOutGroupCheck,]
   #Now subsetting for dataframe with both lineages
   dfPairingResultsL1L2 <- subset(dfPairingResultsL1L2, dfPairingResultsL1L2$inGroupPairing %in% 
-                                   dfPairingResultsL1$inGroupPairing)
+                                    dfPairingResultsL1$inGroupPairing)
 }
 
 #Renumber pairings again
@@ -909,7 +992,9 @@ dfPairingResultsL2 <- dfPairingResultsL2[order(dfPairingResultsL2$inGroupDist),]
 dfPairingResultsL2$inGroupPairing <- 1:nrow(dfPairingResultsL2)
 
 ###############
-#Finalizing the Pairing Results Dataframes 
+#Section 14: Finalizing the Pairing Results Dataframes
+#In this section the final pairing results are established with outgroups.
+#Pairing result dataframes also undergo some reorganization.
 
 #First order outgroup lineage dataframes again by bin
 dfOutGroupL1 <- dfOutGroupL1[order(match(dfOutGroupL1[,3],
@@ -939,6 +1024,7 @@ dfPairingResultsL1$latDelta <- latDelta
 dfPairingResultsL2 <- data.table(dfPairingResultsL2)
 dfOutGroupL2 <- data.table(dfOutGroupL2)
 dfOutGroupL2$inGroupPairing <- seq.int(nrow(dfOutGroupL2))
+#Setting keys for merge
 setkey(dfOutGroupL2, inGroupPairing)
 setkey(dfPairingResultsL2, inGroupPairing)
 dfPairingResultsL2 <- merge(dfPairingResultsL2, dfOutGroupL2, by.x = "inGroupPairing", 
@@ -1000,36 +1086,47 @@ dfPairingResultsL1L2 <- rbind(dfPairingResultsL1, dfPairingResultsL2)
 dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupPairing),]
 
 ###############
-#Identifying PseudoReplicates 
-
-#To check for the phylogenetics problem of pseudoreplication we can generate another 
-#smaller distance matrix with our selected pairings only for each class
+#Section 15: Identifying PseudoReplicates
+#In this section, we check for the phylogenetics problem of pseudoreplication by generating another 
+#smaller distance matrix with our selected pairings only for each class.
 #If a bin from one pairing is actually closer to a bin from another pairing 
 #(as opposed to its paired lineage) 
-#than we would have to average the results of those two pairings in the statistics section
+#than we would have to average the results of those two pairings in the statistics section.
 
-#To do this we can subset the original pairwise distance matrices with the pairing 
-#bins of each lineage only for each order
+#To do this we can generate pairwise distance matrices with the pairing 
+#bins of each lineage only for each class
 
-#First we need the bins associated with each genetic/pairwise distance matrix
-geneticDistanceMatrixNames <- foreach(i=1:length(geneticDistanceMatrixList)) %do%  
-  as.character(names(geneticDistanceMatrixList[[i]]))
-#Then bins associated with each pairing lineage
-pairingNamesL1 <- as.character(dfPairingResultsL1$inGroupBin)
-pairingNamesL2 <- as.character(dfPairingResultsL2$inGroupBin)
+#First we need the bins associated with each ingrouppairing
 
-#Then subset this list of bins based on bins present in each of the lineages of each pairing
-geneticDistanceMatrixNamesL1 <- foreach(i=1:length(geneticDistanceMatrixNames)) %do% 
-  subset(geneticDistanceMatrixNames[[i]], geneticDistanceMatrixNames[[i]] %in% pairingNamesL1)
-geneticDistanceMatrixNamesL2 <- foreach(i=1:length(geneticDistanceMatrixNames)) %do% 
-  subset(geneticDistanceMatrixNames[[i]], geneticDistanceMatrixNames[[i]] %in% pairingNamesL2)
+#We can break pairing results down by class first in a list
+pairingResultBreakdownClass <- lapply(unique(dfPairingResultsL1L2$class_name.x), 
+                                      function(x) dfPairingResultsL1L2[dfPairingResultsL1L2$class_name.x == x,])
+#Extract bins from each list based on class 
+binClass <- sapply( pairingResultBreakdownClass , function (x) as.character( x$inGroupBin ) )
+#Divide by lineage
+binClassL1 <- foreach(i=1:length(taxaListComplete)) %do% binClass[[i]][seq(1, length(binClass[[i]]), 2)]
+binClassL2 <- foreach(i=1:length(taxaListComplete)) %do% binClass[[i]][seq(2, length(binClass[[i]]), 2)]
+#Extract sequences from each list based on class
+sequenceClass <- sapply( pairingResultBreakdownClass , function (x) as.character( x$trimmedNucleotides.x ) )
+#Creation of another DNAStringSet with sequences
+sequenceClassStringSet <- foreach(i=1:length(taxaListComplete)) %do% DNAStringSet(sequenceClass[[i]])
+#Naming of DNAStringSet
+for (i in seq(from=1, to=length(taxaListComplete), by = 1)){
+  names(sequenceClassStringSet[[i]]) <- binClass[[i]]
+}
 
-#Then subset the list of distance matrices using the lists above
-#Can call this new list of subsetted matrices pseudoRepMatrixList
-pseudoRepMatrixList <- foreach(i=1:length(geneticDistanceMatrixList)) %do%  
-  geneticDistanceMatrixList[[i]][geneticDistanceMatrixNamesL1[[i]], geneticDistanceMatrixNamesL2[[i]]]
+#Conversion to DNAbin format (no need to align since the trimmed sequences should be aligned already)
+pseudoRepDNABin <- foreach(i=1:length(taxaListComplete)) %do% as.DNAbin(sequenceClassStringSet[[i]])
+#Distance Matrix Creation with bins of each pairing lineage only using the TN93 model
+pseudoRepMatrixList <- foreach(i=1:length(taxaListComplete)) %do% 
+  dist.dna(pseudoRepDNABin[[i]], model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+#Conversion to dataframe format
+pseudoRepMatrixList <- foreach(i=1:length(taxaListComplete)) %do% as.data.frame(pseudoRepMatrixList[[i]])
+#Order Matrix by ordering of bins in pairing results
+pseudoRepMatrixList <- foreach(i=1:length(taxaListComplete)) %do%  
+  pseudoRepMatrixList[[i]][binClassL1[[i]], binClassL2[[i]]]
 
-#Then we have to remove matrices in this list which either only have one pairing (2 bins) or 
+#Then we have to remove matrices (from each class) in this list which either only have one pairing (2 bins) or 
 #no pairings present since these cannot have pseudoreplicates present
 pseudoRepMatrixLengthCheck <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
   which(length(pseudoRepMatrixList[[i]])<2)
@@ -1041,68 +1138,71 @@ if(length(pseudoRepMatrixLengthCheck)>0){
 
 #For each column and row of each distance matrix (each matrix belonging to a specific class), if a distance value is lower than the
 #pairwise distances of each pairing than we know there is another bin which is actually closer
-#We check for this by using our pairwise distances from the dfPairingResultsLineage
-#dataframes
+#We check for this by using our pairwise distances from the pseudoRepMatrixList
+#and finding the minimums of each column and row
 
 #First we check the minimum values for each row of each matrix
-pseudoRepMatrixMinRow <- foreach(i=1:length(pseudoRepMatrixList)) %do% apply(pseudoRepMatrixList[[i]],1,min)
+pseudoRepMatrixMinRow <- foreach(i=1:length(pseudoRepMatrixList)) %do% apply(pseudoRepMatrixList[[i]],1,which.min)
 
 #Then we check the minimum values for each column of each matrix
-pseudoRepMatrixMinColumn <- foreach(i=1:length(pseudoRepMatrixList)) %do% apply(pseudoRepMatrixList[[i]],2,min)
+pseudoRepMatrixMinColumn <- foreach(i=1:length(pseudoRepMatrixList)) %do% apply(pseudoRepMatrixList[[i]],2,which.min)
 
-#if bin distance values intersect between these two minimums (row and column) then 
+#If bin distance values intersect between these two minimums (row and column) then 
 #we know there are no pseudoreplicates present for these bins
-#if bin distance values do not intersect, then we know there is a pseudoreplicate bin that is actually closer in distance than one of the pairing bins
+#If bin distance values do not intersect, then we know there is a pseudoreplicate bin that is actually closer in distance than one of the pairing bins
 
-#these next few commands identify bins which do not intersect thus identifying pseudoreplicates
+#This command identifies indices of bins which do not intersect thus identifying pseudoreplicates
 pseudoRepMatrixCandidates <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
   which(pseudoRepMatrixMinRow[[i]] != pseudoRepMatrixMinColumn[[i]])
-pseudoRepMatrixCandidates2 <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
-  pseudoRepMatrixMinColumn[[i]][pseudoRepMatrixCandidates[[i]]]
-pseudoRepMatrixCandidates <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
-  names(pseudoRepMatrixCandidates[[i]])
-pseudoRepMatrixCandidates <- unlist(pseudoRepMatrixCandidates)
-pseudoRepMatrixCandidates2 <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
-  names(pseudoRepMatrixCandidates2[[i]])
-pseudoRepMatrixCandidates2 <- unlist(pseudoRepMatrixCandidates2)
 
-#Now we can get the inGroupPairing numbers associated with the pseudoreplicates
-pseudoRepL1 <- subset(dfPairingResultsL1, dfPairingResultsL1$inGroupBin %in% pseudoRepMatrixCandidates)
-pseudoRepL1 <- pseudoRepL1[order(match(pseudoRepL1[,2],pseudoRepMatrixCandidates)),]
-pseudoRepL1 <- (pseudoRepL1[,c("inGroupPairing")])  
-pseudoRepL2 <- subset(dfPairingResultsL2, dfPairingResultsL2$inGroupBin %in% pseudoRepMatrixCandidates2)
-pseudoRepL2 <- pseudoRepL2[order(match(pseudoRepL2[,2],pseudoRepMatrixCandidates2)),]
-pseudoRepL2 <- (pseudoRepL2[,c("inGroupPairing")])  
+#Identification of bins not intersecting on columns of each matrix
+pseudoRepMatrixCandidates <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
+  pseudoRepMatrixMinColumn[[i]][pseudoRepMatrixCandidates[[i]]]
+
+#Identification of bins not intersecting on rows of each matrix
+pseudoRepMatrixCandidates2 <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
+  pseudoRepMatrixMinRow[[i]][pseudoRepMatrixCandidates[[i]]]
+
+#Naming and unlisting each list of candidates
+#First set of candidates (from columns of matrix)
+pseudoRepMatrixCandidatesNames1 <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
+  names(pseudoRepMatrixCandidates[[i]])
+pseudoRepMatrixCandidates <- unlist(pseudoRepMatrixCandidatesNames1)
+#Second set of candidates (from rows of matrix)
+pseudoRepMatrixCandidatesNames2 <- foreach(i=1:length(pseudoRepMatrixList)) %do% 
+  names(pseudoRepMatrixCandidates2[[i]])
+pseudoRepMatrixCandidates2 <- unlist(pseudoRepMatrixCandidatesNames2)
+
+#Now we can get the inGroupPairing numbers associated with the candidates
+
+#To do this we have to create a named vector containing bins named with pairing numbers of all pairingresults
+pairingNumVector <- as.character(dfPairingResultsL1L2$inGroupBin)
+names(pairingNumVector) <- dfPairingResultsL1L2$inGroupPairing
+
+#Find pairing numbers of pseudoRepMatrixCandidates
+pseudoRepPairingNum <- foreach(i=1:length(pseudoRepMatrixCandidates)) %do% which(pairingNumVector == pseudoRepMatrixCandidates[[i]])
+pseudoRepPairingNum <- unlist(pseudoRepPairingNum)
+pseudoRepPairingNum <- names(pseudoRepPairingNum)
+pseudoRepPairingNum2 <- foreach(i=1:length(pseudoRepMatrixCandidates)) %do% which(pairingNumVector == pseudoRepMatrixCandidates2[[i]])
+pseudoRepPairingNum2 <- unlist(pseudoRepPairingNum2)
+pseudoRepPairingNum2 <- names(pseudoRepPairingNum2)
 
 #If there is at least 1 pseudoreplicate found in any of the distance matrices
 if(length(pseudoRepMatrixCandidates)>0){
-  #Make the pseudoreplicates into a dataframe
-  dfPseudoRep <- as.data.frame(pseudoRepL1)
-  dfPseudoRep$inGroupPairing2 <- pseudoRepL2
-  colnames(dfPseudoRep)[1] <- "inGroupPairing"
-  #delete duplicate inGroupPairing across columns (this is a rare occurence but does happen sometimes)
-  duplicatePseudoRep <- which(dfPseudoRep$inGroupPairing == dfPseudoRep$inGroupPairing2)
+  #Creation of a dataframe for pseudoreplicates
+  dfPseudoRep <- data.frame(pseudoRepPairingNum, stringsAsFactors=FALSE)
+  dfPseudoRep$pseudoRepPairingNum2 <- pseudoRepPairingNum2
+  #Find and remove instances where pairing numbers equal each other
+  duplicatePseudoRep <- which(dfPseudoRep$pseudoRepPairingNum == dfPseudoRep$pseudoRepPairingNum2)
   dfPseudoRep <- dfPseudoRep[-duplicatePseudoRep,]
-  
-  #also to remove duplicated pairings across the inGroupPairing and inGroupPairing2 columns:
-  #Ex: 1,2 and 2,1 in separate rows of dfPseudoRep since these are the same
-  dfPseudoRep <- unique(t(apply(dfPseudoRep, 1, sort)))
-  dfPseudoRep <- data.frame(dfPseudoRep)
-  colnames(dfPseudoRep)[1] <- "inGroupPairing"
-  colnames(dfPseudoRep)[2] <- "inGroupPairing2"
-  dfPseudoRep <- dfPseudoRep[order(dfPseudoRep$inGroupPairing),]
-  dfPseudoRep <- suppressWarnings(by(dfPseudoRep, dfPseudoRep["inGroupPairing2"], head, n=1))
-  dfPseudoRep <- Reduce(rbind, dfPseudoRep)
 }
 
 #These identified pseudoreplicates will now have their signed 
 #relative outgroup distances averaged in the statistics section
 
 ################
-#Relative OutGroup Distance Determination for Pairings
-
-#In this section, relative outgroup distance is determined for each pairing
-#and also the sign of this distance is determined
+#Section 16: Relative OutGroup Distance Determination for Pairings
+#In this section, signed relative outgroup distance is determined for each individual pairing.
 
 #Positive relative distance indicates a pairing where the lower latitude lineage also has the 
 #further outgroup distance thus supporting the latitudinal diversity gradient
@@ -1219,26 +1319,28 @@ colnames(dfPairingResultsSummary)[23] <- "outGroupNucleotides"
 #Reordering
 dfPairingResultsSummary <- dfPairingResultsSummary[order(dfPairingResultsSummary$inGroupPairing),]
 
-#Merge Relative Dist dataframe to a pairing results dataframe to grab the order names so results can
+#Merge Relative Dist dataframe to a pairing results dataframe to grab the class names so results can
 #be broken down by class
 dfRelativeDist <- merge(dfRelativeDist, dfPairingResultsL1, by.x = "variable", by.y = "inGroupPairing")
 dfRelativeDist <- (dfRelativeDist[,c("variable","value","sign","class_name.x")])
 
 ##################
-#PseudoReplicate Relative Outgroup Distance Averaging 
+#Section 17: PseudoReplicate Relative Outgroup Distance Averaging
+#In this section we average pseudoreplicate relative outgroup distances so they can be added to the relative distance results
+#and get included in the statistics section.
 
-#Now to average pseudoreplicates so they can be added to dfRelativeDist
 #Again if at least 1 pseudoreplicate is present in the dfPseudoRep dataframe
 if(nrow(dfPseudoRep)>0){
   #First we have to add the signed relative outgroup distances to dfPseudoRep, merging dfRelativeDist
   #to do this
-  dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, by.x = "inGroupPairing", by.y = "variable")
-  dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, by.x = "inGroupPairing2", by.y = "variable")
-  dfPseudoRep <- (dfPseudoRep[,c("inGroupPairing","value.x","inGroupPairing2","value.y","class_name.x.x")])
+  dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, by.x = "pseudoRepPairingNum", by.y = "variable")
+  dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, by.x = "pseudoRepPairingNum2", by.y = "variable")
+  dfPseudoRep <- (dfPseudoRep[,c("pseudoRepPairingNum","value.x","pseudoRepPairingNum2","value.y","class_name.x.x")])
   colnames(dfPseudoRep)[2] <- "relativeDist1"
   colnames(dfPseudoRep)[4] <- "relativeDist2"
+  
   #Also ordering dfPseudoRep
-  dfPseudoRep <- dfPseudoRep[order(dfPseudoRep$inGroupPairing),]
+  dfPseudoRep <- dfPseudoRep[order(dfPseudoRep$pseudoRepPairingNum),]
   #rounding
   dfPseudoRep$relativeDist1 <- round(dfPseudoRep$relativeDist1, 4)
   dfPseudoRep$relativeDist2 <- round(dfPseudoRep$relativeDist2, 4)
@@ -1265,23 +1367,24 @@ if(nrow(dfPseudoRep)>0){
     }
   
   #breaking pseudoreplicates down to a list
-  pseudoRepList <- lapply(unique(dfPseudoRep$inGroupPairing), 
-                          function(x) dfPseudoRep[dfPseudoRep$inGroupPairing == x,])
+  pseudoRepList <- lapply(unique(dfPseudoRep$pseudoRepPairingNum), 
+                          function(x) dfPseudoRep[dfPseudoRep$pseudoRepPairingNum == x,])
   
   #Number of pseudoreplicates per pairing
   pseudoRepLength <- sapply( pseudoRepList , function (x) length( x$relativeDist2 ) )
   #distances and names associated with pseudoreplicates only
   pseudoRepRelativeDist2 <- sapply( pseudoRepList , function (x) ( x$relativeDist2 ) )
-  pseudoRepRelativeDist2Names <- sapply( pseudoRepList , function (x) ( x$inGroupPairing2 ) )
+  pseudoRepRelativeDist2Names <- sapply( pseudoRepList , function (x) ( x$pseudoRepPairingNum2 ) )
   pseudoRepRelativeDist2Names <- pseudoRepRelativeDist2Names
   #distances and names associated with ingrouppairings only
   pseudoRepRelativeDist1 <- unique(dfPseudoRep$relativeDist1)
-  pseudoRepRelativeDist1Names <- sapply( pseudoRepList , function (x) ( x$inGroupPairing ) )
+  pseudoRepRelativeDist1Names <- sapply( pseudoRepList , function (x) as.character( x$pseudoRepPairingNum ) )
   pseudoRepRelativeDist1Names <- sapply( pseudoRepRelativeDist1Names , function (x) unique( x ) )
   #append these distances together for averaging using map
   #map will append to a list format
-  pseudoRepAllRelativeDist = suppressWarnings(Map(c, pseudoRepRelativeDist2, pseudoRepRelativeDist1))
-  pseudoRepAllRelativeDistNames = Map(c, pseudoRepRelativeDist2Names, pseudoRepRelativeDist1Names)
+  pseudoRepAllRelativeDist <- (Map(c, pseudoRepRelativeDist2, pseudoRepRelativeDist1))
+  pseudoRepAllRelativeDistNames <- Map(c, pseudoRepRelativeDist2Names, pseudoRepRelativeDist1Names)
+  pseudoRepAllRelativeDistNames <- unname(pseudoRepAllRelativeDistNames)
   
   #Now we can finally average the relative distances based on the values in the pseudoRepAllRelativeDist list
   pseudoRepAverage <- sapply( pseudoRepAllRelativeDist , function(x) mean( x ) )
@@ -1310,7 +1413,7 @@ if(nrow(dfPseudoRep)>0){
                                         "positive", "negative")
   #Now lets subset dfRelativeDist to remove pairings that were averaged
   #First making a vector with all pairings averaged
-  pseudoRepPairings <- append(dfPseudoRep$inGroupPairing, dfPseudoRep$inGroupPairing2)
+  pseudoRepPairings <- append(dfPseudoRep$pseudoRepPairingNum, dfPseudoRep$pseudoRepPairingNum2)
   pseudoRepPairings <- pseudoRepPairings[!duplicated(pseudoRepPairings)]
   #Then subsetting dfRelativeDist based on this
   dfRelativeDist <- dfRelativeDist[setdiff(dfRelativeDist$variable, pseudoRepPairings),]  
@@ -1320,14 +1423,12 @@ if(nrow(dfPseudoRep)>0){
   colnames(dfRelativeDist)[4] <- "className"
   #Now dfPseudoRepAverage will be appended to the relativeDist dataframe
   dfRelativeDist <- rbind(dfRelativeDist,dfPseudoRepAverage)
-  #Can remove dfPseudoRep since it is redundant with dfPseudoRepAverage
-  rm(dfPseudoRep)
 }
 
 ##############
-#Statistical Analysis of Pairings
-
-#Binomial Test
+#Section 18: Statistical Analysis of Pairings
+#In this section we are performing Binomial Tests and Wilcoxon Tests on the relative distance results of the pairings
+#to investigate their support of the latitudinal diversity gradient.
 
 #Performing a binomial test on our pairings to test to see if pairings with lower 
 #latitude AND greater outgroup distance are more prevalent than the null expectation of 50% 
@@ -1340,31 +1441,31 @@ successOverall <- length(which(dfRelativeDist$sign == "positive"))
 #total number of trials is number of rows of dfRelativeDist dataframe
 #Null expectation set to 50%
 
-#Binomial test for all orders
+#Binomial test for all classes
 binomialTestOutGroup <- binom.test(successOverall, 
                                    nrow(dfRelativeDist), 
                                    p= 0.5)
 
-#Binomial test for each order separately
+#Binomial test for each class separately
 
 #Break relative outgroup distances down by class
 classBinomList <- lapply(unique(dfRelativeDist$className), 
                          function(x) dfRelativeDist[dfRelativeDist$className == x,])
 
-#Total number of observations for each order
+#Total number of observations for each class
 classNumObservations <- sapply( classBinomList , function (x) length( x$variable ) )
 
-#Number of successes for each order
+#Number of successes for each class
 classNumSuccesses <- sapply( classBinomList , function (x) which( x$sign == "positive" ) )
 classNumSuccesses <- sapply( classNumSuccesses , function (x) length( x ) )
 
-#Binom test for each order
+#Binom test for each class
 binomClass <- foreach(i=1:length(classNumObservations)) %do% 
   binom.test(classNumSuccesses[i],
              classNumObservations[i], 
              p=0.5)
 
-#p-value extraction for binomial test from each order
+#p-value extraction for binomial test from each class
 pvalBinomialTotal <- binomialTestOutGroup$p.value
 pvalBinomialClass <- sapply( binomClass , function (x) ( x$p.value ) )
 
@@ -1403,17 +1504,16 @@ pValWilcoxonTotal <- append(pvalWilcoxon, pvalWilcoxonClass)
 dfPVal$pValueWilcoxon <- pValWilcoxonTotal 
 
 ###############
-#Plotting of Relative Outgroup Distance Results
-
-#Plotting of our relative distances based on pairing number
-#Will plot red if the value is below 0 (meaning not a success) and 
-#blue if above 0 (success!)
+#Section 19: Plotting of Relative Outgroup Distance Results
+#In this section, we do plotting of our relative distances based on pairing number.
+#Points Will plot red if the value is below 0 (meaning not a success) and 
+#blue if above 0 (success!).
 
 #Make the variable column a factor for dfRealtiveDistOverall so ggplot classes pairings correctly
 dfRelativeDist$variable <- factor(dfRelativeDist$variable, 
                                   levels = dfRelativeDist$variable)
 
-#breaking dfRelativeDist down to a list by order so plots can be generated according to class
+#breaking dfRelativeDist down to a list by class so plots can be generated according to class
 relativeDistClass <- lapply(unique(dfRelativeDist$className), 
                             function(x) dfRelativeDist[dfRelativeDist$className == x,])
 
@@ -1436,7 +1536,6 @@ foreach(i=1:length(relativeDistClass)) %do%
          + ggtitle(paste0(classTitle[i],"\n", pValBinomialTitle[i], "\n", pvalWilcoxonTitle[i])) 
          + labs(x="Pairing Number", y="Signed Relative OutGroup Distance", color = "sign")))
 
-
 #Click on zoom icon in the bottom right hand corner to see plot more clearly
 
 #Plots can be scrolled through using the arrow icons in the bottom right hand corner
@@ -1449,7 +1548,10 @@ foreach(i=1:length(relativeDistClass)) %do%
 #dev.off()
 
 ################
-#Map Plotting of latitude separated pairings using Plotly
+#Section 20: Map Plotting of latitude separated pairings using Plotly
+#In this section, we can plot each pairing result on a customizable world map where each pairing is color coded and located
+#on the map according to its respective median latitude and longitude.
+
 #Info can be found here on this: https://plot.ly/r/scatter-plots-on-maps/
 
 #Code adapted from Plotly website
@@ -1504,12 +1606,12 @@ mapTitle <- paste("Map of Latitude Separated Sister Pairings for", classConcaten
 #this command will show a map organized by the pairing number with each pairing number having its
 #own distinctive color on a spectrum of purple (shortest distance) to red (longest distance)
 #map can become crowded with large numbers of pairings so individual maps may need to be manually created
-#for each class
+#for subsets of the pairing results
 plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = hover,
         color = as.ordered(inGroupPairing), colors = "Spectral", mode = "markers+lines", type = 'scattergeo') %>%
   layout(title = paste0(mapTitle) , geo = mapLayout)
 
-#A map can be generated by class with each order having its own distinctive color as well
+#A map can be generated by class with each class having its own distinctive color as well
 #but due to limitations with plotly, lines will not connect pairings:
 plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = hover,
         color = class_name.x, mode = "markers", type = 'scattergeo') %>%
@@ -1520,8 +1622,8 @@ plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = ho
 #the map will appear in a web browser window though you dont have to be online to do this***
 
 ###############
+#Section 21: Posting of Map to Plotly Server for Online Viewing
 #***Only important if you want to post maps online***
-#Posting of Map to Plotly Server for Online Viewing
 
 #For uploading to plotly server for online viewing of map
 
@@ -1552,7 +1654,7 @@ plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = ho
 #plotly_POST(plot, filename = "LatitudeSeparatedPairingsMap")
 
 ###############
-#Output of pairing results to TSV or CSV
+#Section 22: Output of pairing results to TSV or CSV
 #***Only important if you want to export results outside of R***
 
 #uncomment the appropriate commands for either TSV or CSV output
