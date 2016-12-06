@@ -138,6 +138,7 @@ library(readr)
 #For sequence alignments we need the biostrings (DNAStringSet function) and muscle libraries, as follows:
 #source("https://bioconductor.org/biocLite.R")
 #biocLite("Biostrings")
+#biocLite("muscle")
 library("Biostrings")
 library(muscle)
 #For the calculation of overlapping latitude regions we need the Desctools package. 
