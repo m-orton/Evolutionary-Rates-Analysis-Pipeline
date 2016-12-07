@@ -104,12 +104,12 @@
 ##################
 #Important Variables
 
-#alignmentFinal will show a final alignment of each class.
+#alignmentFinal will show a truncated final alignment of each class.
 #(For example, typing alignmentFinal[1] will show the first alignment performed.)
 #Note that the console will not show the full alignment, to view the full alignment you must convert and export to FASTA format.
 #To export and view the full alignment to FASTA format, please see the commands in the Final Alignment section of the code
 
-#alignmentFinalTrim will show a final alignment of each class that is also trimmed by the reference sequence.
+#alignmentFinalTrim will show a truncated final alignment of each class that is also trimmed by the reference sequence.
 #(For example, typing alignmentFinal[1] will show the first alignment performed.)
 #Note that the console will not show the full alignment, to view the full alignment you must convert to FASTA format.
 #To export and view the full alignment to FASTA format, please see the commands in the Final Alignment section of the code
@@ -482,12 +482,10 @@ alignment2 <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet2[[i]])
 #You can also rename the FASTA file if you prefer
 
 #Polychaeta
-alignmentPrelima <- muscle(dnaStringSet2[[1]])
-alignmentPrelima <- DNAStringSet(alignmentPrelima)
+alignmentPrelima <- DNAStringSet(alignment2[[1]])
 writeXStringSet(alignmentPrelima, file="alignmentPrelima.fas", format="fasta", width=1500)
 #Clitellata
-alignmentPrelimb <- muscle(dnaStringSet2[[2]])
-alignmentPrelimb <- DNAStringSet(alignmentPrelimb)
+alignmentPrelimb <- DNAStringSet(alignment2[[2]])
 writeXStringSet(alignmentPrelimb, file="alignmentPrelimb.fas", format="fasta", width=1500)
 
 #Conversion to DNAbin format before using pairwise distance matrix
@@ -550,20 +548,20 @@ for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
 }
 
 #Multiple sequence alignment using muscle package on each element of the dnaStringSet2 list for each class
-#Refer here for details on package: http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
-#This could take several minutes to hours depending on the taxa, using default parameters, muscle will detect DNA is being used and will align accordingly
+#Refer here for details on package: 
+#http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
+#This could take several minutes to hours depending on the taxa, using default parameters, 
+#muscle will detect DNA is being used and will align accordingly
 alignmentFinal <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet3[[i]])
 
 #To check each final alignment (each class) and output the final alignment (before trimming) to FASTA format, uncomment and run these commands
 #You can also rename the FASTA file if you prefer
 
 #Polychaeta
-alignmentFinala <- muscle(dnaStringSet3[[1]])
-alignmentFinala <- DNAStringSet(alignmentFinala)
+alignmentFinala <- DNAStringSet(alignmentFinal[[1]])
 writeXStringSet(alignmentFinala, file="alignmentFinala.fas", format="fasta", width=1500)
 #Clitellata
-alignmentFinalb <- muscle(dnaStringSet3[[2]])
-alignmentFinalb <- DNAStringSet(alignmentFinalb)
+alignmentFinalb <- DNAStringSet(alignmentFinal[[2]])
 writeXStringSet(alignmentFinalb, file="alignmentFinalb.fas", format="fasta", width=1500)
 
 ##############
@@ -1343,8 +1341,8 @@ if(nrow(dfPseudoRep)>0){
   #Also ordering dfPseudoRep
   dfPseudoRep <- dfPseudoRep[order(dfPseudoRep$pseudoRepPairingNum),]
   #rounding
-  dfPseudoRep$relativeDist1 <- round(dfPseudoRep$relativeDist1, 4)
-  dfPseudoRep$relativeDist2 <- round(dfPseudoRep$relativeDist2, 4)
+  dfPseudoRep$relativeDist1 <- round(dfPseudoRep$relativeDist1, 6)
+  dfPseudoRep$relativeDist2 <- round(dfPseudoRep$relativeDist2, 6)
   
   #Now subtracting 1 from positive values and adding one to negative values for averaging 
   #This is to address an issue where averages of pairings differing in sign were producing decimal results
@@ -1589,7 +1587,7 @@ mapLayout <- list(
 dfPairingResultsL1L2$hover <- paste("PairNum:",dfPairingResultsL1L2$inGroupPairing,
                                     "Ingroup:",dfPairingResultsL1L2$inGroupBin, 
                                     dfPairingResultsL1L2$species_name.x, 
-                                    round(dfPairingResultsL1L2$inGroupDist, 3), 
+                                    round(dfPairingResultsL1L2$inGroupDist, 6), 
                                     "Outgroup:", dfPairingResultsL1L2$outGroupBin,
                                     dfPairingResultsL1L2$species_name.y,
                                     sep = "<br>")
