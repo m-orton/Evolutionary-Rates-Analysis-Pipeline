@@ -376,8 +376,8 @@ if(length(largeBin) >0){
   #Multiple sequence alignment using the muscle package.
   #Refer here for details on package: http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
   #Run a multiple sequence alignment on each element of the dnaStringSet1 list
-  #using default settings of Muscle.
-  alignment1 <- foreach(i=1:binNumberCentroid) %do% muscle(dnaStringSet1[[i]])
+  #using diags = TRUE with Muscle command to speed up alignment of each BIN.
+  alignment1 <- foreach(i=1:binNumberCentroid) %do% muscle(dnaStringSet1[[i]], diags = TRUE)
   
   #We can then convert each alignment to DNAbin format.
   dnaBINCentroid <- foreach(i=1:binNumberCentroid) %do% as.DNAbin(alignment1[[i]])
