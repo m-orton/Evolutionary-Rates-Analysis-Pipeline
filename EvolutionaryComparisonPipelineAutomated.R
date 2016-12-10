@@ -1625,6 +1625,9 @@ classConcatenate <- paste(uniqueClass , collapse = ',')
 #Map title command.
 mapTitle <- paste("Map of Latitude Separated Sister Pairings for", classConcatenate)
 
+#This command will ensure the pairingresults dataframe can be read by plotly
+attach(dfPairingResultsL1L2)
+
 #This command will show a map organized by the pairing number with each pairing number having its
 #own distinctive color on a spectrum of purple (shortest distance) to red (longest distance).
 #The map can become crowded with large numbers of pairings, so individual maps may need to be manually created
