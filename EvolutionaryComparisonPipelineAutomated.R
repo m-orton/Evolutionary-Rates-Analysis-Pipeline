@@ -1551,12 +1551,32 @@ pvalWilcoxonTitle <- foreach(i=1:length(pvalBinomialClass)) %do%
 
 #Separate plots will be generated for each class.
 
-foreach(i=1:length(relativeDistClass)) %do%  
-  (print(ggplot(relativeDistClass[[i]], aes(x = variable, y = value, color = sign))
-         + geom_point(stat="identity", size = 2.5) 
-         + theme(text = element_text(size=13), axis.text.x = element_text(face="bold",angle=90, vjust=1))
-         + ggtitle(paste0(classTitle[i],"\n", pValBinomialTitle[i], "\n", pvalWilcoxonTitle[i])) 
-         + labs(x="Pairing Number", y="Signed Relative OutGroup Distance", color = "sign")))
+foreach(i = 1:length(relativeDistClass)) %do%
+  (print(
+    ggplot(relativeDistClass[[i]], aes(
+      x = variable, y = value, color = sign
+    ))
+    + geom_point(stat = "identity", size = 2.5)
+    + theme(
+      text = element_text(size = 13),
+      axis.text.x = element_text(
+        face = "bold",
+        angle = 90,
+        vjust = 1
+      )
+    )
+    + ggtitle(
+      paste0(
+        classTitle[i],
+        "\n",
+        pValBinomialTitle[i],
+        "\n",
+        pvalWilcoxonTitle[i]
+      )
+    )
+    + labs(x = "Pairing Number", y = "Signed Relative OutGroup Distance", color = "sign")
+  ))
+
 
 #Click on zoom icon in the bottom right hand corner to see plot more clearly.
 
