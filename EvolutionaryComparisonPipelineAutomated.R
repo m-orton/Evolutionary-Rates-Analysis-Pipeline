@@ -182,6 +182,11 @@ library(plotly)
 #Example: taxon=Aves$geo=all
 
 #read_tsv has been modified to select only certain columns to save on downloading time 
+dfInitial <- read_tsv("http://www.boldsystems.org/index.php/API_Public/combined?taxon=Annelida&geo=all&format=tsv&marker=COI-5P")[ ,
+                                                                                                 c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
+                                                                                                   'class_name','order_taxID','order_name','family_taxID','family_name',
+                                                                                                   'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
+                                                                                                   'species_taxID','species_name','lat','lon','nucleotides')]
  
 #If you want to run pre downloaded BOLD TSV's to avoid downloading of the same tsv multiple times, 
 #this will let you choose a path to that TSV and parse:
