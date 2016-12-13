@@ -182,7 +182,7 @@ library(plotly)
 #Example: taxon=Aves$geo=all
 
 #read_tsv has been modified to select only certain columns to save on downloading time 
-dfInitial <- read_tsv("http://www.boldsystems.org/index.php/API_Public/combined?taxon=Annelida&geo=all&format=tsv&marker=COI-5P")[ ,
+dfInitial <- read_tsv("http://www.boldsystems.org/index.php/API_Public/combined?taxon=Mollusca&geo=all&format=tsv&marker=COI-5P")[ ,
                                                                                                  c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
                                                                                                    'class_name','order_taxID','order_name','family_taxID','family_name',
                                                                                                    'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
