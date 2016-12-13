@@ -182,12 +182,11 @@ library(plotly)
 #Example: taxon=Aves$geo=all
 
 #read_tsv has been modified to select only certain columns to save on downloading time 
-dfInitial <- read_tsv("http://www.boldsystems.org/index.php/API_Public/combined?taxon=Mollusca&geo=all&format=tsv&marker=COI-5P")[ ,
-                                                                                                 c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
-                                                                                                   'class_name','order_taxID','order_name','family_taxID','family_name',
-                                                                                                   'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
-                                                                                                   'species_taxID','species_name','lat','lon','nucleotides')]
- 
+dfInitial <- read_tsv(
+  "http://www.boldsystems.org/index.php/API_Public/combined?taxon=Mollusca&geo=all&format=tsv")[ ,c('recordID', 'bin_uri','phylum_taxID','phylum_name','class_taxID',
+                                                                                                    'class_name','order_taxID','order_name','family_taxID','family_name',
+                                                                                                    'subfamily_taxID','subfamily_name','genus_taxID','genus_name',
+                                                                                                    'species_taxID','species_name','lat','lon','nucleotides','markercode')]
 #If you want to run pre downloaded BOLD TSV's to avoid downloading of the same tsv multiple times, 
 #this will let you choose a path to that TSV and parse:
 
@@ -206,6 +205,10 @@ dfInitial <- read_tsv("http://www.boldsystems.org/index.php/API_Public/combined?
 #The initial dataframe is also reorganized.
 
 colnames(dfInitial)[1] <- "record_id"
+
+#Removing sequences with marker codes other than COI-5P.
+containCOI <- grep( "COI-5P", dfInitial$markercode)
+dfInitial<-dfInitial[containCOI,]
 
 #Removing sequences with no latitude values. We are filtering according to lat since we only really 
 #need lat for the analysis.
