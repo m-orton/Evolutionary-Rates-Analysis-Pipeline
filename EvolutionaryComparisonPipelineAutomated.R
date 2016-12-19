@@ -620,10 +620,23 @@ alignmentFinalTrim <- foreach(i=1:nrow(dfRefSeq)) %do% substr(alignmentFinal[[i]
 #Again, convert to dnaStringSet format.
 dnaStringSet4 <- sapply( alignmentFinalTrim, function(x) DNAStringSet( x ) )
 
-#Remove our reference sequence from this as we don't want this to be included in further analysis.
+#Establish where the reference sequence is in each alignment for removal of the reference from further analysis.
 refSeqRemove <- foreach(i=1:nrow(dfRefSeq)) %do% which(dnaStringSet4[[i]]@ranges@NAMES == "reference")
-dnaStringSet4 <- foreach(i=1:nrow(dfRefSeq)) %do% subset(dnaStringSet4[[i]][-refSeqRemove[[i]]])
-alignmentFinalTrim <- foreach(i=1:nrow(dfRefSeq)) %do% alignmentFinalTrim[[i]][-refSeqRemove[[i]]]
+
+#We also have to check dnaStringSet4 for alignments that only contain a reference sequence and remove these.
+alignmentCheck <- foreach(i=1:nrow(dfRefSeq)) %do% which(length(dnaStringSet4[[i]]) == 1)
+alignmentCheck <- which(alignmentCheck>0)
+#Subset dnaStringSet4, taxalistcomplete, alignmentFinalTrim and refSeqRemove by the alignment check
+if(length(alignmentCheck>0)){
+  dnaStringSet4 <- dnaStringSet4[-alignmentCheck]
+  taxaListComplete <- taxaListComplete[-alignmentCheck]
+  alignmentFinalTrim <- alignmentFinalTrim[-alignmentCheck]
+  refSeqRemove <- refSeqRemove[-alignmentCheck]
+}
+
+#Removal of references from both dnaStringSet4 and alignmentFinalTrim
+dnaStringSet4 <- foreach(i=1:length(taxaListComplete)) %do% subset(dnaStringSet4[[i]][-refSeqRemove[[i]]])
+alignmentFinalTrim <- foreach(i=1:length(taxaListComplete)) %do% alignmentFinalTrim[[i]][-refSeqRemove[[i]]]
 
 ###############
 #Section 9: Pairwise Distance Determination with the TN93 Model of Finalized Alignment
