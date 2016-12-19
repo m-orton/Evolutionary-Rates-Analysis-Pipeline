@@ -173,6 +173,9 @@ library(jsonlite)
 #plotly package used for map plotting functionality.
 #install.packages("plotly")
 library(plotly)
+#To use the online version of RStudio, we need the stats package.
+#install.packages("stats")
+library(stats)
 
 #################
 #R Commands:
