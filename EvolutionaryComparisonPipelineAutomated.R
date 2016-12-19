@@ -164,9 +164,12 @@ require(ggplot2)
 #dplyr is required if this is not already installed.
 #install.packages("dplyr")
 library(dplyr)
-#As a pre-requisite package to plotly we need the colorspace package
+#As a pre-requisite package to plotly we need the colorspace package.
 #install.packages("colorspace")
 library(colorspace)
+#Prerequisite for the plotly package.
+#install.packages("jsonlite")
+library(jsonlite)
 #plotly package used for map plotting functionality.
 #install.packages("plotly")
 library(plotly)
