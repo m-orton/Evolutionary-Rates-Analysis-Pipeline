@@ -1219,15 +1219,17 @@ pairingNumVector <- as.character(dfPairingResultsL1L2$inGroupBin)
 names(pairingNumVector) <- dfPairingResultsL1L2$inGroupPairing
 
 #Find pairing numbers of pseudoRepMatrixCandidates
-pseudoRepPairingNum <- foreach(i=1:length(pseudoRepMatrixCandidates)) %do% which(pairingNumVector == pseudoRepMatrixCandidates[[i]])
-pseudoRepPairingNum <- unlist(pseudoRepPairingNum)
-pseudoRepPairingNum <- names(pseudoRepPairingNum)
-pseudoRepPairingNum2 <- foreach(i=1:length(pseudoRepMatrixCandidates)) %do% which(pairingNumVector == pseudoRepMatrixCandidates2[[i]])
-pseudoRepPairingNum2 <- unlist(pseudoRepPairingNum2)
-pseudoRepPairingNum2 <- names(pseudoRepPairingNum2)
+if(length(pseudoRepMatrixCandidates)>1){
+  pseudoRepPairingNum <- foreach(i=1:length(pseudoRepMatrixCandidates)) %do% which(pairingNumVector == pseudoRepMatrixCandidates[[i]])
+  pseudoRepPairingNum <- unlist(pseudoRepPairingNum)
+  pseudoRepPairingNum <- names(pseudoRepPairingNum)
+  pseudoRepPairingNum2 <- foreach(i=1:length(pseudoRepMatrixCandidates)) %do% which(pairingNumVector == pseudoRepMatrixCandidates2[[i]])
+  pseudoRepPairingNum2 <- unlist(pseudoRepPairingNum2)
+  pseudoRepPairingNum2 <- names(pseudoRepPairingNum2)
+}
 
 #If there is at least 1 pseudoreplicate found in any of the distance matrices
-if(length(pseudoRepMatrixCandidates)>0){
+if(length(pseudoRepMatrixCandidates)>1){
   #Creation of a dataframe for pseudoreplicates
   dfPseudoRep <- data.frame(pseudoRepPairingNum, stringsAsFactors=FALSE)
   dfPseudoRep$pseudoRepPairingNum2 <- pseudoRepPairingNum2
@@ -1371,7 +1373,7 @@ dfRelativeDist <- (dfRelativeDist[,c("variable","value","sign","class_name.x")])
 #and get included in the statistics section.
 
 #Again, if at least 1 pseudoreplicate is present in the dfPseudoRep dataframe, then:
-if(nrow(dfPseudoRep)>0){
+if(length(pseudoRepMatrixCandidates)>1){
   #First we have to add the signed relative outgroup distances to dfPseudoRep, merging dfRelativeDist
   #to do this
   dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, by.x = "pseudoRepPairingNum", by.y = "variable")
