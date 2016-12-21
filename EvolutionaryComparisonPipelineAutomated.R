@@ -385,7 +385,7 @@ if(length(largeBin) >0){
   #Refer here for details on package: http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
   #Run a multiple sequence alignment on each element of the dnaStringSet1 list
   #using default settings of Muscle.
-  alignment1 <- foreach(i=1:binNumberCentroid) %do% muscle(dnaStringSet1[[i]], diags=TRUE)
+  alignment1 <- foreach(i=1:binNumberCentroid) %do% muscle(dnaStringSet1[[i]], maxiters = 3, diags = TRUE, gapopen = -3000)
   
   #We can then convert each alignment to DNAbin format.
   dnaBINCentroid <- foreach(i=1:binNumberCentroid) %do% as.DNAbin(alignment1[[i]])
@@ -506,7 +506,7 @@ for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
 #Using default settings of package, the muscle command can detect DNA is being used and align accordingly.
 #The settings can be modified, if needed, depending upon the size of the data set to be 
 #aligned and the patterns of sequence divergence in given data set.
-alignment2 <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet2[[i]],maxiters=3)
+alignment2 <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet2[[i]], maxiters = 3, diags = TRUE, gapopen = -3000)
 
 #To check each preliminary alignment (each class) and output the preliminary alignments to FASTA format, uncomment and run these three commands:
 
@@ -581,7 +581,7 @@ for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
 #http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
 #This could take several minutes to hours depending on the taxa. Using default parameters, 
 #muscle will detect DNA is being used and will align accordingly.
-alignmentFinal <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet3[[i]], maxiters=3)
+alignmentFinal <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet3[[i]], maxiters = 3, diags = TRUE, gapopen = -3000)
 
 #To check each final alignment (each class) and output the final alignments to FASTA format, uncomment and run these three commands:
 
@@ -656,7 +656,7 @@ dnaBIN2 <- foreach(i=1:length(taxaListComplete)) %do% as.DNAbin(dnaStringSet4[[i
 #Once again using the TN93 model for pairwise distance computation, this time from the 3rd alignment after divergent sequences
 #have been removed and after trimming according to the reference sequences.
 matrixGeneticDistance2 <- foreach(i=1:length(taxaListComplete)) %do% 
-  dist.dna(dnaBIN2[[i]], model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+  dist.dna(dnaBIN2[[i]], model = "TN93", as.matrix = TRUE, pairwise.deletion = FALSE)
 
 #convert to dataframe.
 geneticDistanceMatrixList2 <- foreach(i=1:length(taxaListComplete)) %do%  as.data.frame(matrixGeneticDistance2[i])
