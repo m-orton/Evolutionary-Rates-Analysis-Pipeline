@@ -385,10 +385,10 @@ if(length(largeBin) >0){
   #Refer here for details on package: http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
   #Run a multiple sequence alignment on each element of the dnaStringSet1 list
   #using diags = TRUE with Muscle command to speed up alignment of each BIN.
-  alignment1 <- foreach(i=1:binNumberCentroid) %do% muscle(dnaStringSet1[[i]], diags = TRUE)
+  alignment1 <- foreach(i=1:binNumberCentroid) %do% muscle(dnaStringSet1[[i]], maxiters = 3, diags = TRUE, gapopen = -3000)
   
   #We can then convert each alignment to DNAbin format.
-  dnaBINCentroid <- foreach(i=1:binNumberCentroid) %do% as.DNAbin(alignment1[[i]],maxiters=3,gapopen=-3000)
+  dnaBINCentroid <- foreach(i=1:binNumberCentroid) %do% as.DNAbin(alignment1[[i]])
   
   #Then, we perform genetic distance determination with the TN93 model on each DNAbin list.
   geneticDistanceCentroid <- foreach(i=1:binNumberCentroid) %do% 
@@ -506,7 +506,7 @@ for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
 #Using default settings of package, the muscle command can detect DNA is being used and align accordingly.
 #The settings can be modified, if needed, depending upon the size of the data set to be 
 #aligned and the patterns of sequence divergence in given data set.
-alignment2 <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet2[[i]],maxiters=3,gapopen=-3000)
+alignment2 <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet2[[i]], maxiters = 3, diags = TRUE, gapopen = -3000)
 
 #To check each preliminary alignment (each class) and output the preliminary alignments to FASTA format, uncomment and run these three commands:
 
@@ -581,7 +581,7 @@ for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
 #http://www.bioconductor.org/packages/release/bioc/vignettes/muscle/inst/doc/muscle-vignette.pdf
 #This could take several minutes to hours depending on the taxa. Using default parameters, 
 #muscle will detect DNA is being used and will align accordingly.
-alignmentFinal <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet3[[i]],maxiters=3,gapopen=-3000)
+alignmentFinal <- foreach(i=1:nrow(dfRefSeq)) %do% muscle(dnaStringSet3[[i]], maxiters = 3, diags = TRUE, gapopen = -3000)
 
 #To check each final alignment (each class) and output the final alignments to FASTA format, uncomment and run these three commands:
 
