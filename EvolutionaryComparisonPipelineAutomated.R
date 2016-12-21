@@ -272,10 +272,10 @@ N_gap_check <- which(N_gap_check>0)
 # Subset out these higher gap and N content sequences.
 dfInitial <- dfInitial[-N_gap_check,]
 
-#Filter out sequences less than 620 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment,
+#Filter out sequences less than 640 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment,
 #and this also helps to standardize sequence length against the reference sequences, for consistency in subsequent analyses.
-sequenceLengths <- nchar(dfInitial$nucleotides)
-sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<620)
+sequenceLengths <- nchar(gsub("-", "",dfInitial$nucleotides))
+sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<640)
 dfInitial <- dfInitial[-sequenceLengthCheck,]
 
 #Modifying BIN column slightly to remove "BIN:"
