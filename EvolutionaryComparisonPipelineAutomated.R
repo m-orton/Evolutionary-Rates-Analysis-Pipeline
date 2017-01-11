@@ -572,7 +572,7 @@ alignmentNames <- foreach(i=1:nrow(dfRefSeq)) %do% append(classSequencesNames[[i
 
 #Converting all sequences in dfAllSeq plus reference to DNAStringSet format, 
 #the format required for the alignment.
-dnaStringSet3 <- sapply( alignmentSequencesPlusRef, function(x) DNAStringSet( x ) )
+dnaStringSet3 <- foreach(i=1:nrow(dfRefSeq)) %do% DNAStringSet(alignmentSequencesPlusRef[[i]])
 
 #Name the DNAStringSet List with the appropriate BIN uri's.
 for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
@@ -629,7 +629,7 @@ alignmentFinalTrim <- foreach(i=1:nrow(dfRefSeq)) %do% substr(alignmentFinal[[i]
 #For instance the class Polychaeta would show up as the file alignmentFinalTrimPolychaeta.fas.***
 
 #Again, convert to dnaStringSet format.
-dnaStringSet4 <- sapply( alignmentFinalTrim, function(x) DNAStringSet( x ) )
+dnaStringSet4 <- foreach(i=1:nrow(dfRefSeq)) %do% DNAStringSet(alignmentFinalTrim[[i]])
 
 #Establish where the reference sequence is in each alignment for removal of the reference from further analysis.
 refSeqRemove <- foreach(i=1:nrow(dfRefSeq)) %do% which(dnaStringSet4[[i]]@ranges@NAMES == "reference")
