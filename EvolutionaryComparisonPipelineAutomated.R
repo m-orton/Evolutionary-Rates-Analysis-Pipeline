@@ -476,7 +476,9 @@ dfAllSeq <- subset(dfAllSeq, dfAllSeq$class_name %in% dfRefSeq$taxa)
 taxaListComplete <- lapply(unique(dfAllSeq$class_taxID), function(x) dfAllSeq[dfAllSeq$class_taxID == x,])
 
 #Revise dfRefSeq dataframe to reflect this.
-classList <- sapply( taxaListComplete , function(x) unique( x$class_name ) )
+classList <- foreach(i=1:nrow(dfRefSeq)) %do% unique(taxaListComplete[[i]]$class_name)
+classList <- unlist(classList)
+ 
 #This command will ensure the reference sequence dataframe is in the same order as the allseq dataframe.
 dfRefSeq <- dfRefSeq[match(classList, dfRefSeq$taxa),]
 
@@ -489,11 +491,11 @@ dfRefSeq <- dfRefSeq[match(classList, dfRefSeq$taxa),]
 #This ensures the final alignment will only be using sequences that are closely related to some others in pairwise distance.
 
 #Extraction of Sequences from taxalist for the alignment.
-classSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
+classSequences <- foreach(i=1:nrow(dfRefSeq)) %do% taxaListComplete[[i]]$nucleotides
 #Extraction of BINs from taxalist for the alignment.
-classBin <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
+classBin <- foreach(i=1:nrow(dfRefSeq)) %do% taxaListComplete[[i]]$bin_uri
 #Conversion to DNAStringSet format.
-dnaStringSet2 <- sapply( classSequences, function(x) DNAStringSet( x ) )
+dnaStringSet2 <- foreach(i=1:nrow(dfRefSeq)) %do% DNAStringSet(classSequences[[i]])
 
 #Naming the DNAStringSet with the appropriate bin_uri's.
 for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
@@ -552,8 +554,8 @@ taxaListComplete <- foreach(i=1:length(taxaListComplete)) %do%
   subset(taxaListComplete[[i]], taxaListComplete[[i]]$bin_uri %in% divergentSequencesRemove[[i]])
 
 #Extract sequences and bin_uri from each class.
-classBin <- sapply( taxaListComplete , function(x) ( x$bin_uri ) )
-classSequences <- sapply( taxaListComplete, function(x) ( x$nucleotides ) )
+classBin <- foreach(i=1:nrow(dfRefSeq)) %do% taxaListComplete[[i]]$bin_uri
+classSequences <-  foreach(i=1:nrow(dfRefSeq)) %do% taxaListComplete[[i]]$nucleotides
 classSequencesNames <- classBin
 
 #Take our reference sequences.
@@ -563,13 +565,13 @@ dfRefSeq$reference <- "reference"
 alignmentRefNames <- dfRefSeq$reference
 
 #Merge our reference sequences with each of our class sequences.
-alignmentSequencesPlusRef <- mapply(c, classSequences, alignmentRef)
+alignmentSequencesPlusRef <- foreach(i=1:nrow(dfRefSeq)) %do% append(classSequences[[i]],alignmentRef[[i]])
 #Merge the names together.
-alignmentNames <- mapply(c, classSequencesNames, alignmentRefNames)
+alignmentNames <- foreach(i=1:nrow(dfRefSeq)) %do% append(classSequencesNames[[i]],alignmentRefNames[[i]])
 
 #Converting all sequences in dfAllSeq plus reference to DNAStringSet format, 
 #the format required for the alignment.
-dnaStringSet3 <- sapply( alignmentSequencesPlusRef, function(x) DNAStringSet( x ) )
+dnaStringSet3 <- foreach(i=1:nrow(dfRefSeq)) %do% DNAStringSet(alignmentSequencesPlusRef[[i]])
 
 #Name the DNAStringSet List with the appropriate BIN uri's.
 for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
@@ -626,7 +628,7 @@ alignmentFinalTrim <- foreach(i=1:nrow(dfRefSeq)) %do% substr(alignmentFinal[[i]
 #For instance the class Polychaeta would show up as the file alignmentFinalTrimPolychaeta.fas.***
 
 #Again, convert to dnaStringSet format.
-dnaStringSet4 <- sapply( alignmentFinalTrim, function(x) DNAStringSet( x ) )
+dnaStringSet4 <- foreach(i=1:nrow(dfRefSeq)) %do% DNAStringSet(alignmentFinalTrim[[i]])
 
 #Establish where the reference sequence is in each alignment for removal of the reference from further analysis.
 refSeqRemove <- foreach(i=1:nrow(dfRefSeq)) %do% which(dnaStringSet4[[i]]@ranges@NAMES == "reference")
@@ -681,7 +683,7 @@ pairingResultCheck <- which(pairingResultCheck>0)
 #so that we aren't keeping classes without pairings in these lists.
 if(length(pairingResultCheck>0)){
   taxaListComplete <- taxaListComplete[-pairingResultCheck]
-  geneticDistanceStackList2 <- geneticDistanceStackList[-pairingResultCheck]
+  geneticDistanceStackList2 <- geneticDistanceStackList2[-pairingResultCheck]
   pairingResultCandidates <- pairingResultCandidates[-pairingResultCheck]
   dnaStringSet4 <- dnaStringSet4[-pairingResultCheck]
 }
@@ -1145,12 +1147,12 @@ dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupP
 pairingResultBreakdownClass <- lapply(unique(dfPairingResultsL1L2$class_name.x), 
                                       function(x) dfPairingResultsL1L2[dfPairingResultsL1L2$class_name.x == x,])
 #Extract BINs from each list based on class.
-binClass <- sapply( pairingResultBreakdownClass , function (x) as.character( x$inGroupBin ) )
+binClass <-  foreach(i=1:length(pairingResultBreakdownClass)) %do% as.character(pairingResultBreakdownClass[[i]]$inGroupBin)
 #Divide by lineage.
-binClassL1 <- foreach(i=1:length(taxaListComplete)) %do% binClass[[i]][seq(1, length(binClass[[i]]), 2)]
-binClassL2 <- foreach(i=1:length(taxaListComplete)) %do% binClass[[i]][seq(2, length(binClass[[i]]), 2)]
+binClassL1 <- foreach(i=1:length(pairingResultBreakdownClass)) %do% binClass[[i]][seq(1, length(binClass[[i]]), 2)]
+binClassL2 <- foreach(i=1:length(pairingResultBreakdownClass)) %do% binClass[[i]][seq(2, length(binClass[[i]]), 2)]
 #Extract sequences from each list based on class.
-sequenceClass <- sapply( pairingResultBreakdownClass , function (x) as.character( x$trimmedNucleotides.x ) )
+sequenceClass <- foreach(i=1:length(pairingResultBreakdownClass)) %do% as.character(pairingResultBreakdownClass[[i]]$trimmedNucleotides.x)
 #Creation of another DNAStringSet with sequences.
 sequenceClassStringSet <- foreach(i=1:length(taxaListComplete)) %do% DNAStringSet(sequenceClass[[i]])
 #Naming of DNAStringSet.
@@ -1501,29 +1503,30 @@ classBinomList <- lapply(unique(dfRelativeDist$className),
                          function(x) dfRelativeDist[dfRelativeDist$className == x,])
 
 #Total number of observations for each class.
-classNumObservations <- sapply( classBinomList , function (x) length( x$variable ) )
+classNumObservations <- foreach(i=1:length(classBinomList)) %do% length(classBinomList[[i]]$variable)
 
 #Number of successes for each class.
-classNumSuccesses <- sapply( classBinomList , function (x) which( x$sign == "positive" ) )
-classNumSuccesses <- sapply( classNumSuccesses , function (x) length( x ) )
+classNumSuccesses <- foreach(i=1:length(classBinomList)) %do% which(classBinomList[[i]]$sign == "positive" ) 
+classNumSuccesses <- foreach(i=1:length(classBinomList)) %do% length(classNumSuccesses[[i]])
 
 #Binom test for each class.
 binomClass <- foreach(i=1:length(classNumObservations)) %do% 
-  binom.test(classNumSuccesses[i],
-             classNumObservations[i], 
+  binom.test(classNumSuccesses[[i]],
+             classNumObservations[[i]], 
              p=0.5)
 
 #p-value extraction for binomial test from each class.
 pvalBinomialTotal <- binomialTestOutGroup$p.value
-pvalBinomialClass <- sapply( binomClass , function (x) ( x$p.value ) )
+pvalBinomialClass <- foreach(i=1:length(classBinomList)) %do% binomClass[[i]]$p.value
 
 #Creation of a dataframe for p-values.
 allClassVariable <- "AllClasses"
-classNames1 <- sapply( classBinomList , function (x) unique( x$className ) )
+classNames1 <- foreach(i=1:length(classBinomList)) %do% unique(classBinomList[[i]]$className)
+classNames1 <- unlist(classNames1)
 classNames2 <- append(allClassVariable, classNames1)
 pValBinomial <- append(pvalBinomialTotal, pvalBinomialClass)
 dfPVal <- data.frame(classNames2)
-dfPVal$pValueBinomial <- pValBinomial
+dfPVal$pValueBinomial <- round(as.numeric(pValBinomial), digits = 6)
 
 #Wilcoxon Test
 
@@ -1538,19 +1541,19 @@ wilcoxTestOutGroup <- wilcox.test(dfRelativeDist$value, mu=0)
 #Wilcoxon test for each class separately:
 
 #Relative outgroup values for each class to be fed into test.
-classValue <- sapply( classBinomList , function (x) ( x$value ) )
+classValue <-  foreach(i=1:length(classBinomList)) %do% (classBinomList[[i]]$value)
 
 #Wilcoxon test for each class.
 wilcoxonClass <- foreach(i=1:length(classValue)) %do% wilcox.test(classValue[[i]], mu=0) 
 
 #p-value extraction for Wilcoxon test.
 pvalWilcoxon <- wilcoxTestOutGroup$p.value
-pvalWilcoxonClass <- sapply(wilcoxonClass, function (x) ( x$p.value ) )
+pvalWilcoxonClass <- foreach(i=1:length(wilcoxonClass)) %do% (wilcoxonClass[[i]]$p.value)
 pValWilcoxonTotal <- append(pvalWilcoxon, pvalWilcoxonClass)
 
 #Addition of Wilcoxon p-values to dfPVal dataframe.
-dfPVal$pValueWilcoxon <- pValWilcoxonTotal 
-
+dfPVal$pValueWilcoxon <- round(as.numeric(pValWilcoxonTotal), digits = 6)
+                          
 ###############
 #Section 19: Plotting of Relative Outgroup Distance Results
 #In this section, we do plotting of our relative distances based on pairing number.
