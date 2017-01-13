@@ -6,7 +6,7 @@
 #Collaboration of Sarah Adamowicz (University of Guelph) in designing the analyses
 
 
-#Pipeline Purpose (Class-Level Analyses):
+#Pipeline Purpose (Class-Level Analyses - Very large datasets):
 
 #This pipeline will allow for the generation of latitudinally separated sister pairings and
 #associated outgroupings from nearly any taxa (provided they have a suitable reference sequence and are not too large)
@@ -230,47 +230,6 @@ dfInitial$lonNum <- lonNum
 containBin <- grep( "[:]", dfInitial$bin_uri)
 dfInitial <- dfInitial[containBin,]
 
-#We next get rid of any records that don't have sequence data.
-#(Sometimes there are a few records that bear a BIN but for which the sequence was subsequently deleted. This could occur
-#if a record had a sequence and the record holder later deleted the sequence, e.g. due to suspected contamination.)
-containNucleotides <- grep( "[ACGT]", dfInitial$nucleotides)
-dfInitial <- dfInitial[containNucleotides,]
-
-#Next, we filter out high gap content and N content to ensure high sequence quality.
-
-#First, we need to convert nucleotides to chr type.
-dfInitial$nucleotides <- with(dfInitial, (as.character(nucleotides))) 
-#Cut off starting Ns and gaps (large portions of Ns and gaps occur at the start of a sequence).
-start_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("^[-N]", dfInitial$nucleotides)), length)
-start_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
-  if (start_N_gap[[i]] > 0) {
-    split <- strsplit(dfInitial$nucleotides[i], "^[-N]+")
-    dfInitial$nucleotides[i] <- split[[1]][2]
-  }
-#Cut off ending Ns and gaps (large portions of Ns and gaps occur at the end of a sequence).
-end_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]$", dfInitial$nucleotides)), length)
-end_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
-  if (end_N_gap[[i]] > 0) {
-    split <- strsplit(dfInitial$nucleotides[i], "[-N]+$")
-    dfInitial$nucleotides[i] <- split[[1]][1]
-  }
-#This will give the number of positions where an *internal* N or gap is found for each sequence.
-internal_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]", dfInitial$nucleotides)), length)
-#We then loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
-#the total sequence length.
-internal_N_gap <- foreach(i=1:nrow(dfInitial)) %do% 
-  which((internal_N_gap[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
-N_gap_check <- sapply( internal_N_gap , function (x) length( x ) )
-N_gap_check <- which(N_gap_check>0)
-# Subset out these higher gap and N content sequences.
-dfInitial <- dfInitial[-N_gap_check,]
-
-#Filter out sequences less than 640 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment,
-#and this also helps to standardize sequence length against the reference sequences, for consistency in subsequent analyses.
-sequenceLengths <- nchar(gsub("-", "",dfInitial$nucleotides))
-sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<640)
-dfInitial <- dfInitial[-sequenceLengthCheck,]
-
 #Modifying BIN column slightly to remove "BIN:"
 dfInitial$bin_uri <- substr(dfInitial$bin_uri, 6 , 13)
 
@@ -280,6 +239,7 @@ dfInitial <- (dfInitial[,c("record_id","bin_uri","phylum_taxID","phylum_name","c
                            "family_name","subfamily_taxID","subfamily_name","genus_taxID",
                            "genus_name","species_taxID","species_name","nucleotides",
                            "latNum","lonNum")])
+
 ############
 #Section 3: BIN Stats and Median Latitude/Longitude Determination per BIN
 #In this section, the median latitude is determined for each BIN as well as other important pieces of information including
@@ -335,6 +295,54 @@ dfBinList <- merge(dfBinList, dfLatLon, by.x = "bin_uri", by.y = "bin_uri")
 
 #Also reordering dfLatLon by bin_uri for a step later on.
 dfLatLon <- dfLatLon[order(dfLatLon$bin_uri),]
+
+#Next we perform a few filtering steps to ensure sequences are of high quality.
+
+#We next get rid of any records that don't have sequence data.
+#(Sometimes there are a few records that bear a BIN but for which the sequence was subsequently deleted. This could occur
+#if a record had a sequence and the record holder later deleted the sequence, e.g. due to suspected contamination.)
+containNucleotides <- grep( "[ACGT]", dfInitial$nucleotides)
+dfInitial <- dfInitial[containNucleotides,]
+
+#Next, we filter out high gap content and N content to ensure high sequence quality.
+
+#First, we need to convert nucleotides to chr type.
+dfInitial$nucleotides <- with(dfInitial, (as.character(nucleotides))) 
+#Cut off starting Ns and gaps (large portions of Ns and gaps occur at the start of a sequence).
+start_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("^[-N]", dfInitial$nucleotides)), length)
+start_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
+  if (start_N_gap[[i]] > 0) {
+    split <- strsplit(dfInitial$nucleotides[i], "^[-N]+")
+    dfInitial$nucleotides[i] <- split[[1]][2]
+  }
+#Cut off ending Ns and gaps (large portions of Ns and gaps occur at the end of a sequence).
+end_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]$", dfInitial$nucleotides)), length)
+end_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
+  if (end_N_gap[[i]] > 0) {
+    split <- strsplit(dfInitial$nucleotides[i], "[-N]+$")
+    dfInitial$nucleotides[i] <- split[[1]][1]
+  }
+#This will give the number of positions where an *internal* N or gap is found for each sequence.
+internal_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]", dfInitial$nucleotides)), length)
+#We then loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
+#the total sequence length.
+internal_N_gap <- foreach(i=1:nrow(dfInitial)) %do% 
+  which((internal_N_gap[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
+N_gap_check <- sapply( internal_N_gap , function (x) length( x ) )
+N_gap_check <- which(N_gap_check>0)
+# Subset out these higher gap and N content sequences.
+dfInitial <- dfInitial[-N_gap_check,]
+
+#Filter out sequences less than 640 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment,
+#and this also helps to standardize sequence length against the reference sequences, for consistency in subsequent analyses.
+sequenceLengths <- nchar(gsub("-", "",dfInitial$nucleotides))
+sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<640)
+dfInitial <- dfInitial[-sequenceLengthCheck,]
+
+#Subset dfBinList by record ids now present in dfInitial after filtering
+dfBinList <- subset(dfBinList, dfBinList$record_id %in% dfInitial$record_id)
+#Subset dfLatLon by bins now present in dfBinList
+dfLatLon <- subset(dfLatLon, dfLatLon$bin_uri %in% dfBinList$bin_uri)
 
 ###############
 #Section 4: Selecting a Centroid Sequence Per BIN
@@ -678,9 +686,9 @@ geneticDistanceMatrixList2 <- foreach(i=1:length(taxaListComplete)) %do%  as.dat
 geneticDistanceStackList2 <- foreach(i=1:length(taxaListComplete)) %do% stack(geneticDistanceMatrixList2[[i]])
 
 ################
-#Section 10: Finding Appropriate Pairings According to Genetic Distance Criteria
-#In this section, we establish preliminary pairings of BINs showing up to a maximum of 0.15 genetic divergence and divide preliminary pairings into distinct 
-#lineages.
+#Section 10: Finding Appropriate Pairings According to Genetic Distance Criteria and Latitude Criteria
+#In this section, we establish preliminary pairings of BINs showing up to a maximum of 0.15 genetic divergence and 20 degrees latitude difference
+#and divide preliminary pairings into distinct lineages.
 
 #These values can easily be edited to add more or less stringency to the matches.
 #Will produce lists with indexes (BINs, row and column names) of each match according to the maximum genetic distance criterion of 0.15.
@@ -760,24 +768,6 @@ colnames(dfPairingResultsL1L2)[4] <- "inGroupDist"
 colnames(dfPairingResultsL1L2)[26] <- "indexNo"
 dfPairingResultsL1L2$index <- seq.int(nrow(dfPairingResultsL1L2))
 
-#Merge aligned and trimmed nucleotide sequences with pairing candidates, replacing raw sequences from intial tsv.
-alignmentFinalTrimUnlist <- unlist(alignmentFinalTrim)
-#New dataframe with trimmed and aligned sequences.
-dfTrimmedSeq <- data.frame(alignmentFinalTrimUnlist)
-dfTrimmedSeq$bin_uri <- names(alignmentFinalTrimUnlist)
-colnames(dfTrimmedSeq)[1] <- "trimmedNucleotides"
-
-#merge sequences to dfPairingResultsL1L2.
-dfPairingResultsL1L2 <- merge(dfPairingResultsL1L2, dfTrimmedSeq, 
-                              by.x = "bin_uri", by.y = "bin_uri")
-#Again reorganization of pairingresults to have trimmedNucleotides added instead of nucleotides.
-dfPairingResultsL1L2 <- (dfPairingResultsL1L2[,c("inGroupPairing","record_id","bin_uri","inGroupDist",
-                                                 "inGroupDistx1.3","medianLatAbs","medianLatMap","latMin","latMax",
-                                                 "binSize","phylum_taxID","phylum_name","class_taxID",
-                                                 "class_name","order_taxID","order_name","family_taxID",
-                                                 "family_name","subfamily_taxID","subfamily_name",
-                                                 "genus_taxID","genus_name","species_taxID","species_name",
-                                                 "trimmedNucleotides","indexNo","medianLon","index")])
 #order by ingrouppairing between pairings.
 dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupPairing),]
 
@@ -789,7 +779,7 @@ dfPairingResultsL1 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2==0,]
 dfPairingResultsL2 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2>0,]
 
 ################
-#Section 11: Ensuring Every Pairing is a Unique Set of BINs
+#Section 11: Ensuring Every Pairing is a Unique Set of BINs and Addition of Trimmed Sequences to Pairing Results
 #In this section we want to eliminate duplicate BINs in the pairing results.
 #If a BIN is found in multiple pairings that meet the latitude criterion, 
 #then we will only retain the pairing with the smallest ingroup distance.
@@ -806,6 +796,44 @@ dfPairingResultsL1L2 <- subset(dfPairingResultsL1L2, dfPairingResultsL1L2$inGrou
 #now rebuilding L1 and L2 based on a subsetted L1L2.
 dfPairingResultsL1 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2==0,]
 dfPairingResultsL2 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2>0,]
+
+#Merge aligned and trimmed nucleotide sequences with pairing candidates, replacing raw sequences from intial tsv.
+alignmentFinalTrimUnlist <- unlist(alignmentFinalTrim)
+#New dataframe with trimmed and aligned sequences.
+dfTrimmedSeq <- data.frame(alignmentFinalTrimUnlist)
+dfTrimmedSeq$bin_uri <- names(alignmentFinalTrimUnlist)
+colnames(dfTrimmedSeq)[1] <- "trimmedNucleotides"
+
+#merge sequences to dfPairingResultsL1L2, L1 and L2 dataframes.
+dfPairingResultsL1L2 <- merge(dfPairingResultsL1L2, dfTrimmedSeq, 
+                              by.x = "bin_uri", by.y = "bin_uri")
+dfPairingResultsL1 <- merge(dfPairingResultsL1, dfTrimmedSeq, 
+                            by.x = "bin_uri", by.y = "bin_uri")
+dfPairingResultsL2 <- merge(dfPairingResultsL2, dfTrimmedSeq, 
+                            by.x = "bin_uri", by.y = "bin_uri")
+
+#Again reorganization of pairingresults to have trimmedNucleotides added instead of nucleotides.
+dfPairingResultsL1L2 <- (dfPairingResultsL1L2[,c("inGroupPairing","record_id","bin_uri","inGroupDist",
+                                                 "inGroupDistx1.3","medianLatAbs","medianLatMap","latMin","latMax",
+                                                 "binSize","phylum_taxID","phylum_name","class_taxID",
+                                                 "class_name","order_taxID","order_name","family_taxID",
+                                                 "family_name","subfamily_taxID","subfamily_name",
+                                                 "genus_taxID","genus_name","species_taxID","species_name",
+                                                 "trimmedNucleotides","indexNo","medianLon","index")])
+dfPairingResultsL1 <- (dfPairingResultsL1[,c("inGroupPairing","record_id","bin_uri","inGroupDist",
+                                             "inGroupDistx1.3","medianLatAbs","medianLatMap","latMin","latMax",
+                                             "binSize","phylum_taxID","phylum_name","class_taxID",
+                                             "class_name","order_taxID","order_name","family_taxID",
+                                             "family_name","subfamily_taxID","subfamily_name",
+                                             "genus_taxID","genus_name","species_taxID","species_name",
+                                             "trimmedNucleotides","indexNo","medianLon","index")])
+dfPairingResultsL1 <- (dfPairingResultsL2[,c("inGroupPairing","record_id","bin_uri","inGroupDist",
+                                             "inGroupDistx1.3","medianLatAbs","medianLatMap","latMin","latMax",
+                                             "binSize","phylum_taxID","phylum_name","class_taxID",
+                                             "class_name","order_taxID","order_name","family_taxID",
+                                             "family_name","subfamily_taxID","subfamily_name",
+                                             "genus_taxID","genus_name","species_taxID","species_name",
+                                             "trimmedNucleotides","indexNo","medianLon","index")])
 
 #Order and renumber pairings starting at 1.
 dfPairingResultsL1L2 <- dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupDist),]
@@ -1084,7 +1112,7 @@ dfPairingResultsL1$inGroupPairing <- 1:nrow(dfPairingResultsL1)
 dfPairingResultsL2 <- dfPairingResultsL2[order(dfPairingResultsL2$inGroupDist),]
 dfPairingResultsL2$inGroupPairing <- 1:nrow(dfPairingResultsL2)
 
-#Removal of more variables to free up working memory and minimize workspace size
+#Removal of more variables
 rm(dfOutGroupMerge)
 rm(dfTrimmedSeq)
 rm(outGroupCandidatesL1a)
@@ -1808,13 +1836,13 @@ plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = ho
 
 #or for results summary:
 
-#dfPairingResultsOut <- data.frame(lapply(dfPairingResultsSummary, as.character),
-#stringsAsFactors=FALSE)
+dfPairingResultsOut <- data.frame(lapply(dfPairingResultsSummary, as.character),
+                                  stringsAsFactors=FALSE)
 
 #Defining another variable to give a unique name to the CSV.
 #Name would be what you specify it to be. R will prompt you to insert a name for
 #the file in the console:
-#filename <- readline(prompt="")
+filename <- readline(prompt="")
 
 #Then you can uncomment one of these write.table commands to output.
 #**will output file to current working directory of R**
@@ -1826,6 +1854,6 @@ plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, text = ho
 
 #TSV
 
-#write.table(dfPairingResultsOut, file=paste(filename, ".tsv", sep=""), quote=FALSE, 
-#sep='\t', col.names = NA)
+write.table(dfPairingResultsOut, file=paste(filename, ".tsv", sep=""), quote=FALSE, 
+            sep='\t', col.names = NA)
 
