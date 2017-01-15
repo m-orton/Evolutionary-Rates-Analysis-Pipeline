@@ -827,7 +827,7 @@ dfPairingResultsL1 <- (dfPairingResultsL1[,c("inGroupPairing","record_id","bin_u
                                              "family_name","subfamily_taxID","subfamily_name",
                                              "genus_taxID","genus_name","species_taxID","species_name",
                                              "trimmedNucleotides","indexNo","medianLon","index")])
-dfPairingResultsL1 <- (dfPairingResultsL2[,c("inGroupPairing","record_id","bin_uri","inGroupDist",
+dfPairingResultsL2 <- (dfPairingResultsL2[,c("inGroupPairing","record_id","bin_uri","inGroupDist",
                                              "inGroupDistx1.3","medianLatAbs","medianLatMap","latMin","latMax",
                                              "binSize","phylum_taxID","phylum_name","class_taxID",
                                              "class_name","order_taxID","order_name","family_taxID",
