@@ -230,6 +230,47 @@ dfInitial$lonNum <- lonNum
 containBin <- grep( "[:]", dfInitial$bin_uri)
 dfInitial <- dfInitial[containBin,]
 
+#We next get rid of any records that don't have sequence data.
+#(Sometimes there are a few records that bear a BIN but for which the sequence was subsequently deleted. This could occur
+#if a record had a sequence and the record holder later deleted the sequence, e.g. due to suspected contamination.)
+containNucleotides <- grep( "[ACGT]", dfInitial$nucleotides)
+dfInitial <- dfInitial[containNucleotides,]
+
+#Next, we filter out high gap content and N content to ensure high sequence quality.
+
+#First, we need to convert nucleotides to chr type.
+dfInitial$nucleotides <- with(dfInitial, (as.character(nucleotides))) 
+#Cut off starting Ns and gaps (large portions of Ns and gaps occur at the start of a sequence).
+start_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("^[-N]", dfInitial$nucleotides)), length)
+start_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
+  if (start_N_gap[[i]] > 0) {
+    split <- strsplit(dfInitial$nucleotides[i], "^[-N]+")
+    dfInitial$nucleotides[i] <- split[[1]][2]
+  }
+#Cut off ending Ns and gaps (large portions of Ns and gaps occur at the end of a sequence).
+end_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]$", dfInitial$nucleotides)), length)
+end_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
+  if (end_N_gap[[i]] > 0) {
+    split <- strsplit(dfInitial$nucleotides[i], "[-N]+$")
+    dfInitial$nucleotides[i] <- split[[1]][1]
+  }
+#This will give the number of positions where an *internal* N or gap is found for each sequence.
+internal_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]", dfInitial$nucleotides)), length)
+#We then loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
+#the total sequence length.
+internal_N_gap <- foreach(i=1:nrow(dfInitial)) %do% 
+  which((internal_N_gap[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
+N_gap_check <- sapply( internal_N_gap , function (x) length( x ) )
+N_gap_check <- which(N_gap_check>0)
+# Subset out these higher gap and N content sequences.
+dfInitial <- dfInitial[-N_gap_check,]
+
+#Filter out sequences less than 640 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment,
+#and this also helps to standardize sequence length against the reference sequences, for consistency in subsequent analyses.
+sequenceLengths <- nchar(gsub("-", "",dfInitial$nucleotides))
+sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<640)
+dfInitial <- dfInitial[-sequenceLengthCheck,]
+  
 #Modifying BIN column slightly to remove "BIN:"
 dfInitial$bin_uri <- substr(dfInitial$bin_uri, 6 , 13)
 
@@ -239,7 +280,6 @@ dfInitial <- (dfInitial[,c("record_id","bin_uri","phylum_taxID","phylum_name","c
                            "family_name","subfamily_taxID","subfamily_name","genus_taxID",
                            "genus_name","species_taxID","species_name","nucleotides",
                            "latNum","lonNum")])
-
 ############
 #Section 3: BIN Stats and Median Latitude/Longitude Determination per BIN
 #In this section, the median latitude is determined for each BIN as well as other important pieces of information including
@@ -295,55 +335,7 @@ dfBinList <- merge(dfBinList, dfLatLon, by.x = "bin_uri", by.y = "bin_uri")
 
 #Also reordering dfLatLon by bin_uri for a step later on.
 dfLatLon <- dfLatLon[order(dfLatLon$bin_uri),]
-
-#Next we perform a few filtering steps to ensure sequences are of high quality.
-
-#We next get rid of any records that don't have sequence data.
-#(Sometimes there are a few records that bear a BIN but for which the sequence was subsequently deleted. This could occur
-#if a record had a sequence and the record holder later deleted the sequence, e.g. due to suspected contamination.)
-containNucleotides <- grep( "[ACGT]", dfInitial$nucleotides)
-dfInitial <- dfInitial[containNucleotides,]
-
-#Next, we filter out high gap content and N content to ensure high sequence quality.
-
-#First, we need to convert nucleotides to chr type.
-dfInitial$nucleotides <- with(dfInitial, (as.character(nucleotides))) 
-#Cut off starting Ns and gaps (large portions of Ns and gaps occur at the start of a sequence).
-start_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("^[-N]", dfInitial$nucleotides)), length)
-start_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
-  if (start_N_gap[[i]] > 0) {
-    split <- strsplit(dfInitial$nucleotides[i], "^[-N]+")
-    dfInitial$nucleotides[i] <- split[[1]][2]
-  }
-#Cut off ending Ns and gaps (large portions of Ns and gaps occur at the end of a sequence).
-end_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]$", dfInitial$nucleotides)), length)
-end_N_gap <- foreach(i=1:nrow(dfInitial)) %do%
-  if (end_N_gap[[i]] > 0) {
-    split <- strsplit(dfInitial$nucleotides[i], "[-N]+$")
-    dfInitial$nucleotides[i] <- split[[1]][1]
-  }
-#This will give the number of positions where an *internal* N or gap is found for each sequence.
-internal_N_gap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]", dfInitial$nucleotides)), length)
-#We then loop through each sequence to see if the number of Ns or gaps is greater than 1% (0.01) of
-#the total sequence length.
-internal_N_gap <- foreach(i=1:nrow(dfInitial)) %do% 
-  which((internal_N_gap[[i]]/nchar(dfInitial$nucleotides[i])>0.01))
-N_gap_check <- sapply( internal_N_gap , function (x) length( x ) )
-N_gap_check <- which(N_gap_check>0)
-# Subset out these higher gap and N content sequences.
-dfInitial <- dfInitial[-N_gap_check,]
-
-#Filter out sequences less than 640 bp and greater than 1000 bp since these sequence length extremes can interfere with the alignment,
-#and this also helps to standardize sequence length against the reference sequences, for consistency in subsequent analyses.
-sequenceLengths <- nchar(gsub("-", "",dfInitial$nucleotides))
-sequenceLengthCheck <- which(sequenceLengths>1000 | sequenceLengths<640)
-dfInitial <- dfInitial[-sequenceLengthCheck,]
-
-#Subset dfBinList by record ids now present in dfInitial after filtering
-dfBinList <- subset(dfBinList, dfBinList$record_id %in% dfInitial$record_id)
-#Subset dfLatLon by bins now present in dfBinList
-dfLatLon <- subset(dfLatLon, dfLatLon$bin_uri %in% dfBinList$bin_uri)
-
+  
 ###############
 #Section 4: Selecting a Centroid Sequence Per BIN
 #A single Barcode Index Number (BIN) can contain many record ids and sequences.
