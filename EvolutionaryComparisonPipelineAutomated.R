@@ -561,7 +561,7 @@ dfRefSeq$reference <- "reference"
 alignmentRefNames <- dfRefSeq$reference
 
 #Merge our reference sequences with each of our class sequences.
-alignmentSequencesPlusRef <- foreach(i=1:nrow(dfRefSeq)) %do% append(classSequences[[i]],alignmentRef[[i]])
+alignmentSequencesPlusRef <- foreach(i=1:nrow(dfRefSeq)) %do% append(as.character(classSequences[[i]],alignmentRef[[i]]))
 #Merge the names together.
 alignmentNames <- foreach(i=1:nrow(dfRefSeq)) %do% append(classSequencesNames[[i]],alignmentRefNames[[i]])
 
