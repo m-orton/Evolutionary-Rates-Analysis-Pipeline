@@ -46,6 +46,9 @@
 # Larger taxa including various phyla can be run and will get broken down into 
 # classes, and sister pairs are sought within classes by default. 
 
+# ***This version of the program is intended for the smaller taxa under 10000
+# BIN's in size.***
+
 ###################
 # Guidelines and Tips on Using this Program:
 
@@ -64,12 +67,7 @@
 
 # At this time, it is best not to run Arthropoda, Insecta, or Chordata 
 # in their entirety since these are all very large and computationally demanding
-# and should be broken down into smaller sub-taxa. As well be aware that the 
-# larger insect orders including Diptera, Hymenoptera and Lepidoptera are large 
-# enough that they require an additional code component that divides the dataset 
-# into four separate geographical regions: North America, South America, 
-# Australia and Eurasia/Africa. This code component will be located in 
-# section 5 of the program for these specific taxa.
+# and should be broken down into smaller sub-taxa. 
 
 # It is highly recommended that you save your workspaces frequently with large 
 # taxa in case of unexpected crashes within R Studio.
@@ -271,7 +269,7 @@ library(plotly)
 
 # The read_tsv function has been modified to select only certain columns to save
 # on downloading time:
-dfInitial <- read_tsv("http://www.boldsystems.org/index.php/API_Public/combined?taxon=Annelida&geo=all&format=tsv")[,
+dfInitial <- read_tsv("http://www.boldsystems.org/index.php/API_Public/combined?taxon=&geo=all&format=tsv")[,
     c('recordID', 'bin_uri','phylum_taxID','phylum_name',
       'class_taxID','class_name','order_taxID',
       'order_name','family_taxID','family_name',
@@ -602,9 +600,8 @@ rm(dfLatLon)
 # was used.
 
 # Manual input of reference sequences into dfRefSeq dataframe
-dfRefSeq <- data.frame(taxa = c("Clitellata","Polychaeta"),
-                       nucleotides = c("AACTCTATACTTTATTTTAGGCGTCTGAGCAGGAATAGTGGGGGCTGGTATAAGACTCCTAATTCGAATTGAGCTAAGACAGCCGGGAGCATTTCTAGGAAGGGATCAACTCTATAACACTATTGTAACTGCTCACGCATTTGTAATAATTTTCTTTCTAGTAATACCTGTATTTATTGGGGGGTTCGGTAATTGACTTCTGCCTTTAATACTTGGAGCCCCTGACATGGCATTCCCACGTCTTAACAACATAAGATTTTGACTCCTTCCCCCATCACTAATCCTTCTAGTATCCTCTGCTGCAGTAGAAAAGGGTGCGGGAACTGGATGAACTGTTTATCCACCCCTAGCAAGAAACATTGCTCATGCCGGCCCATCTGTAGACTTAGCTATTTTTTCTCTTCATTTAGCAGGTGCTTCATCAATCTTGGGTGCCATTAATTTTATTACTACTGTTATTAATATACGATGAAGAGGCTTACGACTTGAACGAATCCCATTATTCGTTTGAGCCGTACTAATTACAGTGGTCCTTCTACTCTTATCCTTACCAGTATTAGCCGGTGCAATTACTATACTACTTACCGATCGAAATCTAAATACCTCCTTCTTTGACCCTGCTGGAGGTGGGGATCCAATCCTATATCAACACTTATTC",
-                                       "CACCCTCTATTTTATCTTCGGAGTCTGATCTGGTCTTCTAGGTACATCAATAAGGCTACTAATCCGAATTGAGCTTGGGCAACCCGGCTCTTTTTTAGGTAGAGACCAACTGTACAATACGGTTGTAACTGCACATGCTTTTCTTATAATTTTCTTTCTTGTCATACCCGTCTTTATTGGTGGGTTTGGAAACTGACTTGTCCCATTAATACTTGCTGCTCCAGACATGGCATTTCCCCGAATAAACAACATAAGTTTCTGACTTCTCCCTCCGGCCCTGATTCTTCTTCTGAGCTCCGCTGCAGTTGAAAAGGGCGTTGGTACAGGTTGAACAGTATACCCCCCCTTATCAAGAAACCTCGCACATGCGGGTCCATCTGTAGATTTGGCCATCTTTTCTCTCCACTTAGCCGGGATCTCATCTATTCTCGGAGCTATTAACTTTATTACTACCGTAATCAACATGCGGTCTAAAGGCCTTCGATTAGAACGAGTCCCTCTATTCGTGTGGGCAGTAAAGATTACTGCTATCCTTCTTCTTTTATCACTTCCTGTTTTAGCAGGAGCCATTACTATACTCCTAACTGACCGTAATTTAAACACCTCATTCTTCGATCCAGCAGGGGGAGGAGACCCCATTCTTTACCAACACCTCTTT"))
+dfRefSeq <- data.frame(taxa = c(""),
+                       nucleotides = c(""))
 colnames(dfRefSeq)[2] <- "nucleotides"
 dfRefSeq$nucleotides <- as.character(dfRefSeq$nucleotides)
 
@@ -828,6 +825,19 @@ refSeqPosEnd <- as.numeric(refSeqPosEnd)
 # alignment.
 alignmentFinalTrim <- foreach(i=1:nrow(dfRefSeq)) %do% 
   substr(alignmentFinal[[i]], refSeqPosStart[i] + 1, refSeqPosEnd[i])
+      
+# In Mollusca it has been found that some sequences were shorter 
+# than reference sequence length when not counting gaps. These next few 
+# commands can be uncommented for Mollusca to filter out sequences less than 
+# 600 bp (counting nucleotides only) after trimming 
+# according to the reference:
+      
+# sequenceLengths2 <- foreach(i=1:nrow(dfRefSeq)) %do%  
+#   nchar(gsub("-", "", alignmentFinalTrim[[i]]))
+# sequenceLengthCheck2 <- foreach(i=1:nrow(dfRefSeq)) %do% 
+#   which(sequenceLengths2[[i]] > 600)
+# alignmentFinalTrim <- foreach(i=1:nrow(dfRefSeq)) %do%  
+#   alignmentFinalTrim[[i]][sequenceLengthCheck2[[i]]]
 
 # To check each final trimmed alignment (each class) and output the final 
 # trimmed alignments to FASTA format, uncomment and run these three commands:
@@ -892,7 +902,8 @@ dnaBin2 <- foreach(i=1:length(taxaListComplete)) %do%
 matrixGeneticDistance2 <- foreach(i=1:length(taxaListComplete)) %do% 
   dist.dna(dnaBin2[[i]], model = "TN93", as.matrix = TRUE, 
            pairwise.deletion = TRUE)
-
+# Specifically in Mollusca, the pairwise.deletion setting is set to FALSE.
+     
 # Convert to dataframe format.
 geneticDistanceMatrixList2 <- foreach(i=1:length(taxaListComplete)) %do% 
   as.data.frame(matrixGeneticDistance2[i])
