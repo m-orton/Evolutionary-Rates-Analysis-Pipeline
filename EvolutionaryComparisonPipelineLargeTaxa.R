@@ -1656,30 +1656,29 @@ binClassL2 <- foreach(i=1:length(pairingResultBreakdownClass)) %do%
 # Extract sequences from each list based on class.
 sequenceClass <- foreach(i=1:length(pairingResultBreakdownClass)) %do% 
   as.character(pairingResultBreakdownClass[[i]]$trimmedNucleotides.x)
-# Creation of another DNAStringSet with sequences.
-sequenceClassStringSet <- foreach(i=1:length(taxaListComplete)) %do% 
+# Convert to DNAStringSet format
+sequenceClassStringSet <- foreach(i=1:length(sequenceClass)) %do% 
   DNAStringSet(sequenceClass[[i]])
 # Naming of DNAStringSet.
-for (i in seq(from=1, to=length(taxaListComplete), by = 1)) {
+for (i in seq(from=1, to=length(sequenceClassStringSet), by = 1)) {
   names(sequenceClassStringSet[[i]]) <- binClass[[i]]
 }
 
 # Conversion to DNAbin format (no need to align since the trimmed sequences 
 # should be aligned already).
-pseudoRepDNABin <- foreach(i=1:length(taxaListComplete)) %do% 
+pseudoRepDNABin <- foreach(i=1:length(sequenceClassStringSet)) %do% 
   as.DNAbin(sequenceClassStringSet[[i]])
 # Distance Matrix Creation with BINs of each pairing lineage only, 
 # using the TN93 model.
-pseudoRepMatrixList <- foreach(i=1:length(taxaListComplete)) %do% 
+pseudoRepMatrixList <- foreach(i=1:length(sequenceClassStringSet)) %do% 
   dist.dna(pseudoRepDNABin[[i]], model = "TN93", as.matrix = TRUE, 
            pairwise.deletion = TRUE)
 # Conversion to dataframe format.
-pseudoRepMatrixList <- foreach(i=1:length(taxaListComplete)) %do% 
+pseudoRepMatrixList <- foreach(i=1:length(sequenceClassStringSet)) %do% 
   as.data.frame(pseudoRepMatrixList[[i]])
 # Order Matrix by ordering of BINs in pairing results.
-pseudoRepMatrixList <- foreach(i=1:length(taxaListComplete)) %do%
+pseudoRepMatrixList <- foreach(i=1:length(sequenceClassStringSet)) %do%
   pseudoRepMatrixList[[i]][binClassL1[[i]], binClassL2[[i]]]
-
 # Then we have to remove matrices (from each class) in this list which either 
 # only have one pairing (2 BINs) or no pairings present since these cannot have 
 # pseudoreplicates present.
