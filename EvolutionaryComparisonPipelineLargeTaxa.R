@@ -275,12 +275,12 @@ library(plotly)
 # The read_tsv function has been modified to select only certain columns to save
 # on downloading time:
 dfInitial <- read_tsv("http://www.boldsystems.org/index.php/API_Public/combined?taxon=&geo=all&format=tsv")[,
-    c('recordID', 'bin_uri','phylum_taxID','phylum_name',
-      'class_taxID','class_name','order_taxID',
-      'order_name','family_taxID','family_name',
-      'subfamily_taxID','subfamily_name','genus_taxID',
-      'genus_name','species_taxID','species_name',
-      'lat','lon','nucleotides','markercode')]
+   c('recordID', 'bin_uri','phylum_taxID','phylum_name',
+     'class_taxID','class_name','order_taxID',
+     'order_name','family_taxID','family_name',
+     'subfamily_taxID','subfamily_name','genus_taxID',
+     'genus_name','species_taxID','species_name',
+     'lat','lon','nucleotides','markercode')]
 
 # If you want to run pre downloaded BOLD TSV's to avoid downloading of the same 
 # tsv multiple times, this will let you choose a path to that TSV and parse. 
@@ -349,7 +349,7 @@ dfInitial$nucleotides <- with(dfInitial, (as.character(nucleotides)))
 # Cut off starting Ns and gaps (large portions of Ns and gaps occur at the start 
 # of a sequence).
 startNGap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("^[-N]", 
-                               dfInitial$nucleotides)), length)
+                    dfInitial$nucleotides)), length)
 startNGap <- foreach(i=1:nrow(dfInitial)) %do%
   if (startNGap[[i]] > 0) {
     split <- strsplit(dfInitial$nucleotides[i], "^[-N]+")
@@ -358,7 +358,7 @@ startNGap <- foreach(i=1:nrow(dfInitial)) %do%
 # Cut off ending Ns and gaps (large portions of Ns and gaps occur at the end of 
 # a sequence).
 endNGap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]$",
-                             dfInitial$nucleotides)), length)
+                  dfInitial$nucleotides)), length)
 endNGap <- foreach(i=1:nrow(dfInitial)) %do%
   if (endNGap[[i]] > 0) {
     split <- strsplit(dfInitial$nucleotides[i], "[-N]+$")
@@ -367,7 +367,7 @@ endNGap <- foreach(i=1:nrow(dfInitial)) %do%
 # This will give the number of positions where an *internal* N or gap is found 
 # for each sequence.
 internalNGap <- sapply(regmatches(dfInitial$nucleotides, gregexpr("[-N]", 
-                                  dfInitial$nucleotides)), length)
+                       dfInitial$nucleotides)), length)
 # We then loop through each sequence to see if the number of Ns or gaps is 
 # greater than 1% (0.01) of the total sequence length.
 internalNGap <- foreach(i=1:nrow(dfInitial)) %do% 
@@ -418,7 +418,7 @@ dfBinList$latNumAbs <- abs(dfBinList$latNum)
 # various columns of the initial dataframe created, and the information is 
 # grouped by BIN. 
 binList <- lapply(unique(dfBinList$bin_uri), function(x) 
-                         dfBinList[dfBinList$bin_uri == x,])
+  dfBinList[dfBinList$bin_uri == x,])
 
 # Now determine the median latitude for each BIN based on absolute values.
 medianLatAbs <- sapply( binList , function(x) median( x$latNumAbs ) )
@@ -522,7 +522,7 @@ if (length(largeBin) > 0) {
   # DNAbin list.
   geneticDistanceCentroid <- foreach(i=1:binNumberCentroid) %do% 
     dist.dna(dnaBINCentroid[[i]], model = "TN93", as.matrix = TRUE, 
-    pairwise.deletion = TRUE)
+             pairwise.deletion = TRUE)
   
   # The centroid sequence can be determined from the distance matrix alone.
   # It is the sequence in a bin with minimum average pairwise distance to all 
@@ -680,7 +680,7 @@ dfAllSeq <- subset(dfAllSeq, dfAllSeq$class_name %in% dfRefSeq$taxa)
 
 # Break dfAllSeq down into the various classes.
 taxaListComplete <- lapply(unique(dfAllSeq$class_taxID), 
-  function(x) dfAllSeq[dfAllSeq$class_taxID == x,])
+                           function(x) dfAllSeq[dfAllSeq$class_taxID == x,])
 
 # Revise dfRefSeq dataframe to reflect this.
 classList <- foreach(i=1:nrow(dfRefSeq)) %do% 
@@ -689,7 +689,7 @@ classList <- unlist(classList)
 # This command will ensure the reference sequence dataframe is in the same order
 # as the dfAllSeq dataframe.
 dfRefSeq <- dfRefSeq[match(classList, dfRefSeq$taxa), ]
-  
+
 ###################
 # Section 6: Preliminary Alignment with Muscle and Pairwise Distance Matrix with
 # the TN93 Model to Identify and Remove Divergent Sequences
@@ -1032,14 +1032,25 @@ pairingResultCandidates3 <- foreach(i=1:length(taxaListComplete)) %do%
 # pairing results dataframe.
 dfPairingResultsL1L2 <- do.call(rbind, Map(data.frame, pairingResultCandidates2,
                                            pairingResultCandidates3))
-# Creating a key that can be used to uniquely identify each pairing based on its
-# ingroup distance and its precise position in its respective pairwise distance 
-# matrix from the row and column number.
-# Also setting number of significant digits to longer so values are more likely 
-# to be unique.
-options(digits = 10)
-dfPairingResultsL1L2$pairingKey <- dfPairingResultsL1L2$values * 
-  (dfPairingResultsL1L2$row + dfPairingResultsL1L2$col)
+
+# Creating a key that can be used to uniquely identify each pairing based on its 
+# precise position in its respective pairwise distance matrix from the row and 
+# column number. This key is generated using a pairing function called
+# called the Cantor pairing function which  will generate a unqiue value
+# value for each pairing.
+
+# First adding min and max columns to the dfPairingResultsL1L2 dataframe
+# so that this key can be calculated. Min refers to the min of value from
+# each row/col and max refers to the max value from each row/col.
+dfPairingResultsL1L2 <- transform(dfPairingResultsL1L2, max = pmax(row, col)) 
+dfPairingResultsL1L2 <- transform(dfPairingResultsL1L2, min = pmin(row, col)) 
+
+# Inputting min and max into the Cantor pairing function so that a unique
+# key can be created for each pairing.
+dfPairingResultsL1L2$pairingKey <- 0.5 *
+  (dfPairingResultsL1L2$max + dfPairingResultsL1L2$min) *
+  (dfPairingResultsL1L2$max + dfPairingResultsL1L2$min + 1) +
+   dfPairingResultsL1L2$min
 
 # Combine AllSeq with pairingResultCandidates to get all relevant taxonomic and 
 # latitudinal data.
@@ -1081,7 +1092,8 @@ dfPairingResultsL1L2 <-
                            "order_taxID","order_name","family_taxID",
                            "family_name","subfamily_taxID","subfamily_name",
                            "genus_taxID","genus_name","species_taxID",
-                           "species_name","nucleotides","ind","medianLon")])
+                           "species_name","nucleotides","ind","medianLon",
+                           "pairingKey")])
 colnames(dfPairingResultsL1L2)[4] <- "inGroupDist"
 colnames(dfPairingResultsL1L2)[26] <- "indexNo"
 dfPairingResultsL1L2$index <- seq.int(nrow(dfPairingResultsL1L2))
@@ -1094,9 +1106,11 @@ dfPairingResultsL1L2 <-
 
 # First lineage, this is done by picking even-numbered rows of pairing results 
 # dataframe: 2,4,6...
-dfPairingResultsL1 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2==0, ]
+dfPairingResultsL1 <- 
+  dfPairingResultsL1L2[dfPairingResultsL1L2$index %% 2 == 0, ]
 # Second lineage, this is done with odd-numbered rows.
-dfPairingResultsL2 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2>0, ]
+dfPairingResultsL2 <- 
+  dfPairingResultsL1L2[dfPairingResultsL1L2$index %%2 > 0, ]
 
 ###################
 # Section 11: Ensuring Every Pairing is a Unique Set of BINs and Addition of 
@@ -1117,14 +1131,16 @@ dfPairingResultsL1L2 <-
   by(dfPairingResultsL1L2, dfPairingResultsL1L2["bin_uri"], head, n=1)
 dfPairingResultsL1L2 <- Reduce(rbind, dfPairingResultsL1L2)
 dfPairingResultsL1 <- 
-  subset(dfPairingResultsL1L2,duplicated(dfPairingResultsL1L2$inGroupPairing))
+  subset(dfPairingResultsL1L2, duplicated(dfPairingResultsL1L2$inGroupPairing))
 #Subsetting against L1L2 to get finalized pairings in L1L2.
 dfPairingResultsL1L2 <- subset(dfPairingResultsL1L2, 
                                dfPairingResultsL1L2$inGroupPairing %in% 
                                dfPairingResultsL1$inGroupPairing)
 # Now rebuilding L1 and L2 based on a subsetted L1L2.
-dfPairingResultsL1 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2==0, ]
-dfPairingResultsL2 <- dfPairingResultsL1L2[dfPairingResultsL1L2$index%%2>0, ]
+dfPairingResultsL1 <- 
+  dfPairingResultsL1L2[dfPairingResultsL1L2$index %% 2 == 0, ]
+dfPairingResultsL2 <- 
+  dfPairingResultsL1L2[dfPairingResultsL1L2$index %% 2 > 0, ]
 
 # Merge aligned and trimmed nucleotide sequences with pairing candidates, 
 # replacing raw sequences from intial tsv.
@@ -1153,7 +1169,7 @@ dfPairingResultsL1L2 <-
                            "family_name","subfamily_taxID","subfamily_name",
                            "genus_taxID","genus_name","species_taxID",
                            "species_name","trimmedNucleotides","indexNo",
-                           "medianLon","index")])
+                           "medianLon","index","pairingKey")])
 dfPairingResultsL1 <- 
   (dfPairingResultsL1[,c("inGroupPairing","record_id","bin_uri","inGroupDist",
                          "inGroupDistx1.3","medianLatAbs","medianLatMap",
@@ -1162,7 +1178,8 @@ dfPairingResultsL1 <-
                          "order_name","family_taxID","family_name",
                          "subfamily_taxID","subfamily_name","genus_taxID",
                          "genus_name","species_taxID","species_name",
-                         "trimmedNucleotides","indexNo","medianLon","index")])
+                         "trimmedNucleotides","indexNo","medianLon","index",
+                         "pairingKey")])
 dfPairingResultsL2 <- 
   (dfPairingResultsL2[,c("inGroupPairing","record_id","bin_uri","inGroupDist",
                          "inGroupDistx1.3","medianLatAbs","medianLatMap",
@@ -1171,18 +1188,19 @@ dfPairingResultsL2 <-
                          "order_name","family_taxID","family_name",
                          "subfamily_taxID","subfamily_name","genus_taxID",
                          "genus_name","species_taxID","species_name",
-                         "trimmedNucleotides","indexNo","medianLon","index")])
+                         "trimmedNucleotides","indexNo","medianLon","index",
+                         "pairingKey")])
 
 # Order and renumber pairings starting at 1.
 dfPairingResultsL1L2 <- 
-  dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupDist), ]
+  dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey), ]
 dfPairingResultsL1L2$inGroupPairing <- 
   rep(1:(nrow(dfPairingResultsL1L2) / 2), each = 2)
 dfPairingResultsL1 <- 
-  dfPairingResultsL1[order(dfPairingResultsL1$inGroupDist), ]
+  dfPairingResultsL1[order(dfPairingResultsL1$pairingKey), ]
 dfPairingResultsL1$inGroupPairing <- 1:nrow(dfPairingResultsL1)
 dfPairingResultsL2 <- 
-  dfPairingResultsL2[order(dfPairingResultsL2$inGroupDist), ]
+  dfPairingResultsL2[order(dfPairingResultsL2$pairingKey), ]
 dfPairingResultsL2$inGroupPairing <- 1:nrow(dfPairingResultsL2)
 
 # Removal of variables to free up working memory and reduce workspace size.
@@ -1216,11 +1234,11 @@ latitudeDiffCheck <- foreach(i=1:nrow(dfPairingResultsL1)) %do%
 # (this choice can be modified by the user).
 latitudeDiffCheck <- which(latitudeDiffCheck<20)
 if (length(latitudeDiffCheck) > 0) {
-  #subsetting Lineage 1 by this latitude check
+  # Subsetting Lineage 1 by this latitude check.
   dfPairingResultsL1 <- dfPairingResultsL1[-latitudeDiffCheck, ]
-  #Now subsetting Lineage 2 
+  # Now subsetting Lineage 2.
   dfPairingResultsL2 <- dfPairingResultsL2[-latitudeDiffCheck, ]
-  #Now subsetting for dataframe with both lineages
+  # Now subsetting for dataframe with both lineages.
   dfPairingResultsL1L2 <- subset(dfPairingResultsL1L2, 
                                  dfPairingResultsL1L2$inGroupPairing %in% 
                                  dfPairingResultsL1$inGroupPairing)
@@ -1297,14 +1315,14 @@ if (length(overlapIndTotal) > 0) {
 
 # Reorder and renumber pairings again
 dfPairingResultsL1L2 <- 
-  dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupDist),]
+  dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey),]
 dfPairingResultsL1L2$inGroupPairing <- 
   rep(1:(nrow(dfPairingResultsL1L2) / 2), each = 2)
 dfPairingResultsL1 <- 
-  dfPairingResultsL1[order(dfPairingResultsL1$inGroupDist), ]
+  dfPairingResultsL1[order(dfPairingResultsL1$pairingKey), ]
 dfPairingResultsL1$inGroupPairing <- 1:nrow(dfPairingResultsL1)
 dfPairingResultsL2 <- 
-  dfPairingResultsL2[order(dfPairingResultsL2$inGroupDist), ]
+  dfPairingResultsL2[order(dfPairingResultsL2$pairingKey), ]
 dfPairingResultsL2$inGroupPairing <- 1:nrow(dfPairingResultsL2)
 
 ###################
@@ -1323,7 +1341,7 @@ dfGeneticDistanceStack <- do.call(rbind, geneticDistanceStackList2)
 # bin_uri's represented in lineage 1. This will be called dfOutGroupL1.
 # This will limit our outgroup distances to those associated with lineage1.
 dfOutGroupL1 <- subset(dfGeneticDistanceStack, dfGeneticDistanceStack$ind %in% 
-                       dfPairingResultsL1$bin_uri)
+                         dfPairingResultsL1$bin_uri)
 
 # Order outgroups by Lineage1.
 dfOutGroupL1 <- dfOutGroupL1[order(match(dfOutGroupL1[, 2],
@@ -1349,7 +1367,7 @@ outGroupCandidatesL1c <- unlist(outGroupCandidatesL1c)
 dfOutGroupL1$rownum <- seq.int(nrow(dfOutGroupL1))
 # Then we can subset to rownum column based on the outgroup candidates.
 dfOutGroupL1 <- dfOutGroupL1[dfOutGroupL1$rownum %in% 
-                             outGroupCandidatesL1c, ]
+                               outGroupCandidatesL1c, ]
 # Same process for lineage 2.
 dfOutGroupL2 <- subset(dfGeneticDistanceStack, dfGeneticDistanceStack$ind %in% 
                        dfPairingResultsL2$bin_uri)
@@ -1376,7 +1394,7 @@ outGroupCandidatesL2c <- unlist(outGroupCandidatesL2c)
 dfOutGroupL2$rownum <- seq.int(nrow(dfOutGroupL2))
 # Then we can subset to rownum column based on the outgroup candidates.
 dfOutGroupL2 <- dfOutGroupL2[dfOutGroupL2$rownum %in% 
-                             outGroupCandidatesL2c, ]
+                               outGroupCandidatesL2c, ]
 
 # This next command will determine which outgroup candidates are shared between 
 # both lineages.
@@ -1496,12 +1514,12 @@ if (length(noOutGroupCheck) > 0) {
 
 # Renumber pairings again.
 dfPairingResultsL1L2 <- 
-  dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupDist),]
+  dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey),]
 dfPairingResultsL1L2$inGroupPairing <- 
   rep(1:(nrow(dfPairingResultsL1L2) / 2), each = 2)
-dfPairingResultsL1 <- dfPairingResultsL1[order(dfPairingResultsL1$inGroupDist),]
+dfPairingResultsL1 <- dfPairingResultsL1[order(dfPairingResultsL1$pairingKey),]
 dfPairingResultsL1$inGroupPairing <- 1:nrow(dfPairingResultsL1)
-dfPairingResultsL2 <- dfPairingResultsL2[order(dfPairingResultsL2$inGroupDist),]
+dfPairingResultsL2 <- dfPairingResultsL2[order(dfPairingResultsL2$pairingKey),]
 dfPairingResultsL2$inGroupPairing <- 1:nrow(dfPairingResultsL2)
 
 # Removal of more variables
@@ -1563,7 +1581,7 @@ dfPairingResultsL2$latDelta <- latDelta
 # remove these.
 equalOutGroupDistCheck <- foreach(i=1:nrow(dfPairingResultsL1)) %do% 
   (dfPairingResultsL1$outGroupDistance[i] - 
-   dfPairingResultsL2$outGroupDistance[i])
+     dfPairingResultsL2$outGroupDistance[i])
 equalOutGroupDistCheck <- which(equalOutGroupDistCheck == 0)
 # If there is at least one pairing with equal outgroup distance from both 
 # lineages.
@@ -1594,7 +1612,7 @@ dfPairingResultsL1 <-
                          "order_name.y","family_taxID.y","family_name.y",
                          "subfamily_taxID.y","subfamily_name.y","genus_taxID.y",
                          "genus_name.y","species_taxID.y","species_name.y",
-                         "trimmedNucleotides.y")])
+                         "trimmedNucleotides.y","pairingKey")])
 colnames(dfPairingResultsL1)[2] <- "inGroupBin"
 dfPairingResultsL1 <- 
   dfPairingResultsL1[order(dfPairingResultsL1$inGroupPairing), ]
@@ -1616,7 +1634,7 @@ dfPairingResultsL2 <-
                          "order_name.y","family_taxID.y","family_name.y",
                          "subfamily_taxID.y","subfamily_name.y","genus_taxID.y",
                          "genus_name.y","species_taxID.y","species_name.y",
-                         "trimmedNucleotides.y")])  
+                         "trimmedNucleotides.y","pairingKey")])  
 colnames(dfPairingResultsL2)[2] <- "inGroupBin"
 dfPairingResultsL2 <- 
   dfPairingResultsL2[order(dfPairingResultsL2$inGroupPairing), ]
@@ -1795,14 +1813,14 @@ x = 1
 # outGroupDist. This will give our relative genetic distances in the vector 
 # testOutGroupDist.
 for (i in seq(from = 1, to = length(testOutGroupDist), by = 2)){
-  if (testOutGroupDist[i] > testOutGroupDist[i+1]) {
-    trueTestOutGroupDist[x] <- testOutGroupDist[i] / testOutGroupDist[i+1]
+  if (testOutGroupDist[i] > testOutGroupDist[i + 1]) {
+    trueTestOutGroupDist[x] <- testOutGroupDist[i] / testOutGroupDist[i + 1]
   }
-  else if (testOutGroupDist[i+1] > testOutGroupDist[i]) {
-    trueTestOutGroupDist[x] = testOutGroupDist[i+1] / testOutGroupDist[i]
+  else if (testOutGroupDist[i + 1] > testOutGroupDist[i]) {
+    trueTestOutGroupDist[x] = testOutGroupDist[i + 1] / testOutGroupDist[i]
   }
-  else if (testOutGroupDist[i+1] == testOutGroupDist[i]) {
-    trueTestOutGroupDist[x] = testOutGroupDist[i+1] / testOutGroupDist[i]
+  else if (testOutGroupDist[i + 1] == testOutGroupDist[i]) {
+    trueTestOutGroupDist[x] = testOutGroupDist[i + 1] / testOutGroupDist[i]
   }
   x <- x + 1
 }
@@ -1810,12 +1828,12 @@ for (i in seq(from = 1, to = length(testOutGroupDist), by = 2)){
 # Checking to see which latitudes are lower for lineage 1 compared to lineage2.
 lowerLatL1 <- foreach(i=1:nrow(dfPairingResultsL1)) %do% 
   which(dfPairingResultsL1$medianLatAbs.x[i] < 
-        dfPairingResultsL2$medianLatAbs.x[i]) 
+          dfPairingResultsL2$medianLatAbs.x[i]) 
 # Checking to see which genetic distances are greater for lineage 1 compared to 
 # lineage2.
 greaterDistanceL1 <- foreach(i=1:nrow(dfPairingResultsL1)) %do% 
   which(dfPairingResultsL1$outGroupDistance[i] > 
-        dfPairingResultsL2$outGroupDistance[i])
+          dfPairingResultsL2$outGroupDistance[i])
 # Then an integer of 1 will be assigned to those in Lineage1 that meet those 
 # criteria. Meeting these criteria is defined as a success.
 successValL1 <- mapply(intersect, lowerLatL1, greaterDistanceL1)
@@ -1826,10 +1844,10 @@ successValL1 <- which(successValL1 > 0)
 # Do the same process for lineage 2 compared to lineage1.
 lowerLatL2 <- foreach(i=1:nrow(dfPairingResultsL2)) %do% 
   which(dfPairingResultsL2$medianLatAbs.x[i] < 
-        dfPairingResultsL1$medianLatAbs.x[i]) 
+          dfPairingResultsL1$medianLatAbs.x[i]) 
 greaterDistanceL2 <- foreach(i=1:nrow(dfPairingResultsL2)) %do% 
   which(dfPairingResultsL2$outGroupDistance[i] > 
-        dfPairingResultsL1$outGroupDistance[i])
+          dfPairingResultsL1$outGroupDistance[i])
 successValL2 <- mapply(intersect, lowerLatL2 ,greaterDistanceL2)
 successValL2 <- which(successValL2 > 0) 
 
@@ -1889,7 +1907,7 @@ dfPairingResultsSummary <-
                            "family_name.x","genus_name.x","species_name.x",
                            "trimmedNucleotides.x","class_name.x","order_name.y",
                            "family_name.y","genus_name.y","species_name.y",
-                           "trimmedNucleotides.y")])
+                           "trimmedNucleotides.y","pairingKey")])
 colnames(dfPairingResultsSummary)[8] <- "inGroupMedianLatAbs"
 colnames(dfPairingResultsSummary)[10] <- "inGroupMinLat"
 colnames(dfPairingResultsSummary)[11] <- "inGroupMaxLat"
@@ -1905,6 +1923,7 @@ colnames(dfPairingResultsSummary)[20] <- "outGroupFamily"
 colnames(dfPairingResultsSummary)[21] <- "outGroupGenus"
 colnames(dfPairingResultsSummary)[22] <- "outGroupSpecies"
 colnames(dfPairingResultsSummary)[23] <- "outGroupNucleotides"
+colnames(dfPairingResultsSummary)[24] <- "pairingKey"
 # Reordering.
 dfPairingResultsSummary <- 
   dfPairingResultsSummary[order(dfPairingResultsSummary$inGroupPairing),]
@@ -1968,7 +1987,7 @@ if (length(pseudoRepMatrixCandidates) > 1) {
   # Breaking pseudoreplicates down to a list.
   pseudoRepList <- 
     lapply(unique(dfPseudoRep$pseudoRepPairingNum), function(x) 
-    dfPseudoRep[dfPseudoRep$pseudoRepPairingNum == x,])
+      dfPseudoRep[dfPseudoRep$pseudoRepPairingNum == x,])
   
   # Number of pseudoreplicates per pairing.
   pseudoRepLength <- 
@@ -2271,16 +2290,16 @@ attach(dfPairingResultsL1L2)
 # for subsets of the pairing results.
 
 plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, 
-  text = hover, color = as.ordered(inGroupPairing), colors = "Spectral", 
-  mode = "markers+lines", type = 'scattergeo') %>%
+        text = hover, color = as.ordered(inGroupPairing), colors = "Spectral", 
+        mode = "markers+lines", type = 'scattergeo') %>%
   layout(title = paste0(mapTitle) , geo = mapLayout)
 
 # A map can be generated by class, with each class having its own distinctive 
 # color. Due to limitations with plotly, lines will not connect pairings:
 
 plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x, 
-  text = hover, color = class_name.x, mode = "markers", 
-  type = 'scattergeo') %>%
+        text = hover, color = class_name.x, mode = "markers", 
+        type = 'scattergeo') %>%
   layout(title = paste0(mapTitle) , geo = mapLayout)
 
 # ***You will need to click on the icon in the viewer (bottom right corner) that
@@ -2306,7 +2325,7 @@ plot_ly(dfPairingResultsL1L2, lat = medianLatMap.x, lon = medianLon.x,
 
 # Run these commands for uploading user details, enter username and API key in 
 # the empty quotations to run commands:
-#(obtained from making an account and in settings of account details) 
+# (obtained from making an account and in settings of account details) 
 
 # Sys.setenv("plotly_username"="") 
 # Sys.setenv("plotly_api_key"="")
