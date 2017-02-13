@@ -956,17 +956,29 @@ pairingResultCandidates3 <- foreach(i=1:length(taxaListComplete)) %do%
 dfPairingResultsL1L2 <- do.call(rbind, Map(data.frame, pairingResultCandidates2, 
                                            pairingResultCandidates3))
 
+# Combine AllSeq with pairingResultCandidates to get all relevant taxonomic 
+# and latitudinal data.
+dfPairingResultsL1L2 <- suppressWarnings(merge(dfPairingResultsL1L2, dfAllSeq, 
+                                               by.x = "ind", by.y = "bin_uri"))
+
 # Creating a key that can be used to uniquely identify each pairing based on its 
 # precise position in its respective pairwise distance matrix from the row and 
 # column number. This key is generated using a pairing function called
-# called the Cantor pairing function which  will generate a unqiue value
+# called the Cantor pairing function which will generate a unique value
 # value for each pairing.
 
 # First adding min and max columns to the dfPairingResultsL1L2 dataframe
 # so that this key can be calculated. Min refers to the min of value from
-# each row/col and max refers to the max value from each row/col
+# each row/col and max refers to the max value from each row/col.
 dfPairingResultsL1L2 <- transform(dfPairingResultsL1L2, max = pmax(row, col)) 
-dfPairingResultsL1L2 <- transform(dfPairingResultsL1L2, min = pmin(row, col)) 
+dfPairingResultsL1L2 <- transform(dfPairingResultsL1L2, min = pmin(row, col))
+
+# Adding the class_taxID to the max and min value of each lineage so that
+# no pairing duplicates can be present across classes.
+dfPairingResultsL1L2$max <- dfPairingResultsL1L2$max + 
+  dfPairingResultsL1L2$class_taxID
+dfPairingResultsL1L2$min <- dfPairingResultsL1L2$min + 
+  dfPairingResultsL1L2$class_taxID
 
 # Inputting min and max into the Cantor pairing function so that a unique
 # key can be created for each pairing.
@@ -975,16 +987,11 @@ dfPairingResultsL1L2$pairingKey <- 0.5 *
   (dfPairingResultsL1L2$max + dfPairingResultsL1L2$min + 1) +
    dfPairingResultsL1L2$min
 
-# Combine AllSeq with pairingResultCandidates to get all relevant taxonomic 
-# and latitudinal data.
-dfPairingResultsL1L2 <- suppressWarnings(merge(dfPairingResultsL1L2, dfAllSeq, 
-                                               by.x = "ind", by.y = "bin_uri"))
-
 # order by pairingKey so all pairings are ordered correctly.
 dfPairingResultsL1L2 <- 
   dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey), ]
 
-# Changing significant digits back.
+# Changing significant digits.
 options(digits =5)
 # Get rid of zero ingroupdistance entries.
 zeroDistance <- which(dfPairingResultsL1L2$values == 0)
@@ -1015,7 +1022,7 @@ dfPairingResultsL1L2 <-
                            "order_taxID","order_name","family_taxID",
                            "family_name","subfamily_taxID","subfamily_name",
                            "genus_taxID","genus_name","species_taxID",
-                           "species_name","nucleotides","ind","medianLon",
+                           "species_name","nucleotides","ind.1","medianLon",
                            "pairingKey")])
 colnames(dfPairingResultsL1L2)[4] <- "inGroupDist"
 colnames(dfPairingResultsL1L2)[26] <- "indexNo"
