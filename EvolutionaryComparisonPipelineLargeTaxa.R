@@ -17,9 +17,9 @@
 # Authors and Contributions:
 
 # This program was authored primarily by Matthew Orton.
-# Contributions by Jacqueline May for lines 349-380,
+# Contributions by Jacqueline May for lines 347-378,
 # editing, formatting and testing of this program.
-# Contributions by David Lee for lines 1769-1786, 
+# Contributions by David Lee for lines 1822-1843, 
 # editing and formatting of this program.
 # Contributions by Winfield Ly for editing and formatting of this program.
 # Collaboration of Sarah Adamowicz (University of Guelph) 
@@ -54,7 +54,7 @@
 
 # The versioning of R and R Studio is important and can influence the results 
 # of this program. At this time we can only guarantee full function of this 
-# program using R Studio versions 0.99.896 or 1.0.44 and R versions 3.3.0 
+# program using R Studio versions 0.99.903 or 1.0.44 and R versions 3.3.1 
 # or 3.2.4.
 
 # It is highly recommended that you use the IDE R Studio to run this program 
@@ -461,6 +461,7 @@ dfLatLon <- dfLatLon[order(dfLatLon$bin_uri),]
 
 ###################
 # Section 4: Selecting a Centroid Sequence Per BIN
+
 # A single Barcode Index Number (BIN) can contain many record ids and sequences.
 # In order to simplify the analyses, we select one sequence per BIN.
 # To do this we are determining the centroid sequence for each BIN.
@@ -1198,7 +1199,7 @@ dfPairingResultsL2 <-
                          "trimmedNucleotides","indexNo","medianLon","index",
                          "pairingKey")])
 
-# Order and renumber pairings starting at 1.
+# Order and renumber pairings starting at 1 according to pairingKey.
 dfPairingResultsL1L2 <- 
   dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey), ]
 dfPairingResultsL1L2$inGroupPairing <- 
