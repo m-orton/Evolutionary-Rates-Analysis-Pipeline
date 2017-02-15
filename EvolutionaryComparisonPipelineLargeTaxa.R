@@ -1792,6 +1792,16 @@ if (length(pseudoRepMatrixCandidates) > 1) {
   dfPseudoRep <- (by(dfPseudoRep, dfPseudoRep["pseudoRepPairingNum2"], 
                      head, n=1))
   dfPseudoRep <- Reduce(rbind, dfPseudoRep)
+  # converting to numeric type for easy ordering
+  dfPseudoRep$pseudoRepPairingNum <- as.numeric(dfPseudoRep$pseudoRepPairingNum)
+  dfPseudoRep$pseudoRepPairingNum2 <- 
+    as.numeric(dfPseudoRep$pseudoRepPairingNum2)
+  # Remove instances of duplicates across columns, ex: 2,1 and 1,2
+  dfPseudoRep <- unique(t(apply(dfPseudoRep, 1, sort)))
+  dfPseudoRep <- data.frame(dfPseudoRep)
+  colnames(dfPseudoRep)[1] <- "pseudoRepPairingNum"
+  colnames(dfPseudoRep)[2] <- "pseudoRepPairingNum2"
+  dfPseudoRep <- dfPseudoRep[order(dfPseudoRep$pseudoRepPairingNum), ]
 }
 
 # These identified pseudoreplicates will now have their signed 
