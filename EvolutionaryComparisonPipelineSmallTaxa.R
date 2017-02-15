@@ -17,9 +17,9 @@
 # Authors and Contributions:
 
 # This program was authored primarily by Matthew Orton.
-# Contributions by Jacqueline May for lines 349-380,
+# Contributions by Jacqueline May for lines 344-373,
 # editing, formatting and testing of this program.
-# Contributions by David Lee for lines 1616-1636, 
+# Contributions by David Lee for lines 1662-1683, 
 # editing and formatting of this program.
 # Contributions by Winfield Ly for editing and formatting of this program.
 # Collaboration of Sarah Adamowicz (University of Guelph) 
@@ -54,7 +54,7 @@
 
 # The versioning of R and R Studio is important and can influence the results 
 # of this program. At this time we can only guarantee full function of this 
-# program using R Studio versions 0.99.896 or 1.0.44 and R versions 3.3.0 
+# program using R Studio versions 0.99.903 or 1.0.44 and R versions 3.3.1 
 # or 3.2.4.
 
 # It is highly recommended that you use the IDE R Studio to run this program 
@@ -456,6 +456,7 @@ dfLatLon <- dfLatLon[order(dfLatLon$bin_uri),]
 
 ###################
 # Section 4: Selecting a Centroid Sequence Per BIN
+  
 # A single Barcode Index Number (BIN) can contain many record ids and sequences.
 # In order to simplify the analyses, we select one sequence per BIN.
 # To do this we are determining the centroid sequence for each BIN.
@@ -1167,8 +1168,7 @@ if (length(overlapIndTotal) > 0) {
 # In this section we want to eliminate duplicate BINs in the pairing results.
 # If a BIN is found in multiple pairings that meet the latitude criterion, 
 # then we will only retain the pairing with the smallest ingroup distance.
-# Pairings are also numbered based on ordering from lowest ingroup distance 
-# to highest.
+# Pairings are also numbered based on ordering of pairing key.
 
 # Once again, order by ingroup distance.
 dfPairingResultsL1L2 <- 
