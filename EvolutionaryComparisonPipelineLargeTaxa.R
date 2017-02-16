@@ -731,7 +731,7 @@ for (i in seq(from = 1, to = nrow(dfRefSeq), by = 1)) {
 # set.
 # ***For larger taxa, it is highly recommended to use a maxiter 
 # setting of 2 to reduce alignment times.***
-alignment2 <- foreach(i=1:binNumberCentroid) %do% 
+alignment2 <- foreach(i=1:length(classBin)) %do% 
   muscle(dnaStringSet2[[i]], maxiters = 2, diags = TRUE, gapopen = -3000)
 
 # To check each preliminary alignment (each class) and output the preliminary 
@@ -839,7 +839,7 @@ for (i in seq(from=1, to=nrow(dfRefSeq), by = 1)){
 # align accordingly.
 # ***For larger taxa, it is highly recommended to use a maxiter 
 # setting of 2 to reduce alignment times.***
-alignmentFinal <- foreach(i=1:binNumberCentroid) %do% 
+alignmentFinal <- foreach(i=1:length(classBin)) %do% 
   muscle(dnaStringSet3[[i]], maxiters = 2, diags = TRUE, gapopen = -3000)
 
 # To check each final alignment (each class) and output the final alignments to 
