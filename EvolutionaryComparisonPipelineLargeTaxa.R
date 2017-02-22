@@ -1531,8 +1531,6 @@ dfPairingResultsL2 <- dfPairingResultsL2[order(dfPairingResultsL2$pairingKey),]
 dfPairingResultsL2$inGroupPairing <- 1:nrow(dfPairingResultsL2)
 
 # Removal of more variables
-rm(dfOutGroupMerge)
-rm(dfTrimmedSeq)
 rm(outGroupCandidatesL1a)
 rm(outGroupCandidatesL2a)
 rm(outGroupCandidatesL1c)
