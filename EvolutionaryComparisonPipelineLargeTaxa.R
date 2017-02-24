@@ -1463,7 +1463,7 @@ setkey(dfOutGroupL2, ind.y)
 
 # Merging of outgroup dataframes so final filtering of outgroups can be done.
 dfOutGroupMerge <- merge(dfOutGroupL1, dfOutGroupL2, by.x = "ind.y", 
-                         by.y = "ind.y", all.x = TRUE)
+                         by.y = "ind.y", all.x = TRUE, allow.cartesian=TRUE)
 outGroupMergeCheck <- 
   which(dfOutGroupMerge$rownum.x == dfOutGroupMerge$rownum.y)
 dfOutGroupMerge <- dfOutGroupMerge[outGroupMergeCheck,]
