@@ -37,8 +37,8 @@
 # directly from a BOLD tsv file of the user's choosing to a dataframe in R. 
 # The generated sister pairs and outgroups can also be written to a csv or tsv, 
 # and the file will appear in the current working directory of R. Additionally, 
-# binomial and Wilcoxon tests can be performed on the relative outgroup 
-# distances of the generated pairings, and a plot of the resultant relative 
+# binomial and Wilcoxon tests can be performed on the signed relative branch 
+# lengths of the generated pairings, and a plot of the resultant relative 
 # outgroup distances can be generated for each class. A world map visualizing 
 # the latitudinally separated pairings for the taxon being run can also be 
 # generated using using the R visualization tool plotly.
@@ -136,8 +136,8 @@
 # dfPairingResultsSummary shows a more user-friendly summation of the 
 # pairing results.
 
-# dfRelativeDist shows the relative distances to the outgroup for each pairing, 
-# including pseudoreplicates.
+# dfRelativeBranchLength shows the relative distances to the outgroup for each 
+# pairing including pseudoreplicates.
 
 # dfPairingResultsL1L2 is a more detailed finalized dataframe that contains all 
 # of the finalized pairings and outgroupings and all relevant details for them.
@@ -170,7 +170,7 @@
 # dfPseudoRep shows each separate ingroup pairing number of each set of 
 # pseudoreplicates along with its respective relative outgroup distance.
 
-# dfPseudoRepAverage shows the averaged distances for each set of 
+# dfPseudoRepAverage shows the averaged relative branch lengths for each set of 
 # pseudoreplicates in dfPseudoRep.
 
 ##################
@@ -1649,6 +1649,26 @@ dfPairingResultsL2 <-
 dfPairingResultsL1L2 <- rbind(dfPairingResultsL1, dfPairingResultsL2)
 dfPairingResultsL1L2 <- 
   dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupPairing), ]
+   
+# Filtering out pairings with less than 2% divergence of ingroup distance.
+twoPercentCheck1 <- which(dfPairingResultsL1L2$inGroupDist < 0.02)
+dfPairingResultsL1L2 <- dfPairingResultsL1L2[-twoPercentCheck1,]
+twoPercentCheck2 <- which(dfPairingResultsL1$inGroupDist < 0.02)
+dfPairingResultsL1 <- dfPairingResultsL1[-twoPercentCheck2,]
+twoPercentCheck3 <- which(dfPairingResultsL2$inGroupDist < 0.02)
+dfPairingResultsL2 <- dfPairingResultsL2[-twoPercentCheck3,]
+
+# Order and renumber pairings starting at 1 according to pairingKey.
+dfPairingResultsL1L2 <- 
+  dfPairingResultsL1L2[order(dfPairingResultsL1L2$pairingKey), ]
+dfPairingResultsL1L2$inGroupPairing <- 
+  rep(1:(nrow(dfPairingResultsL1L2) / 2), each = 2)
+dfPairingResultsL1 <- 
+  dfPairingResultsL1[order(dfPairingResultsL1$pairingKey), ]
+dfPairingResultsL1$inGroupPairing <- 1:nrow(dfPairingResultsL1)
+dfPairingResultsL2 <- 
+  dfPairingResultsL2[order(dfPairingResultsL2$pairingKey), ]
+dfPairingResultsL2$inGroupPairing <- 1:nrow(dfPairingResultsL2)
 
 ###################
 # Section 15: Identifying PseudoReplicates
@@ -1804,22 +1824,44 @@ if (length(pseudoRepMatrixCandidates) > 1) {
 }
 
 # These identified pseudoreplicates will now have their signed 
-# relative outgroup distances averaged in the statistics section.
+# relative branch lengths averaged in the statistics section.
 
 ###################
-# Section 16: Relative OutGroup Distance Determination for Pairings
-# In this section, signed relative outgroup distance is determined for each 
+# Section 16: Relative Branch Length Determination for Pairings
+# In this section, signed relative branch length distance is determined for each 
 # individual pairing.
 
-# Positive relative distance indicates a pairing where the lower latitude 
+# Positive relative branch length indicates a pairing where the lower latitude 
 # lineage also has the further outgroup distance, thus supporting the hypothesis
 # of higher evolutionary rates in the tropics.
 
-# Negative would be where the lower latitude lineage has the smaller outgroup 
-# distance.
+# Negative would be where the lower latitude lineage has the smaller branch 
+# length.
+
+# First creating starting branch lengths
+startingBranchLengthL1 <- dfPairingResultsL1$inGroupDist * 0.5
+startingBranchLengthL2 <- dfPairingResultsL2$inGroupDist * 0.5
+
+# Then determining half outgroup distance difference for each lineage
+halfOutGroupDiffL1 <- (dfPairingResultsL1$outGroupDistance - 
+  dfPairingResultsL2$outGroupDistance) / 2
+halfOutGroupDiffL2 <- (dfPairingResultsL2$outGroupDistance - 
+  dfPairingResultsL1$outGroupDistance) / 2
+
+# Estimated Branch Lengths per Lineage
+dfPairingResultsL1$branchLengthEstimation <- 
+  startingBranchLengthL1 + halfOutGroupDiffL1
+dfPairingResultsL2$branchLengthEstimation <- 
+  startingBranchLengthL2 + halfOutGroupDiffL2
+
+# Rebuilding of L1L2 dataframe with outgroups.
+dfPairingResultsL1L2 <- rbind(dfPairingResultsL1, dfPairingResultsL2)
+dfPairingResultsL1L2 <- 
+  dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupPairing), ]
 
 # Create variables that hold outgroup distances.
-testOutGroupDist <- as.numeric(dfPairingResultsL1L2$outGroupDistance)
+testOutGroupDist <- as.numeric(dfPairingResultsL1L2$branchLengthEstimation)
+
 # Stored as a vector.
 # Set trueTestOutGroupDist to null to ensure empty variable.
 trueTestOutGroupDist<-NULL
@@ -1833,7 +1875,7 @@ for (i in seq(from = 1, to = length(testOutGroupDist), by = 2)){
     trueTestOutGroupDist[x] <- testOutGroupDist[i] / testOutGroupDist[i + 1]
   }
   else if (testOutGroupDist[i + 1] > testOutGroupDist[i]) {
-    trueTestOutGroupDist[x] = testOutGroupDist[i + 1] / testOutGroupDist[i]
+    trueTestOutGroupDist[x] = testOutGroupDist[i +1 ] / testOutGroupDist[i]
   }
   else if (testOutGroupDist[i + 1] == testOutGroupDist[i]) {
     trueTestOutGroupDist[x] = testOutGroupDist[i + 1] / testOutGroupDist[i]
@@ -1844,12 +1886,12 @@ for (i in seq(from = 1, to = length(testOutGroupDist), by = 2)){
 # Checking to see which latitudes are lower for lineage 1 compared to lineage2.
 lowerLatL1 <- foreach(i=1:nrow(dfPairingResultsL1)) %do% 
   which(dfPairingResultsL1$medianLatAbs.x[i] < 
-          dfPairingResultsL2$medianLatAbs.x[i]) 
-# Checking to see which genetic distances are greater for lineage 1 compared to 
+        dfPairingResultsL2$medianLatAbs.x[i]) 
+# Checking to see which branch lengths are greater for lineage 1 compared to 
 # lineage2.
 greaterDistanceL1 <- foreach(i=1:nrow(dfPairingResultsL1)) %do% 
-  which(dfPairingResultsL1$outGroupDistance[i] > 
-          dfPairingResultsL2$outGroupDistance[i])
+  which(dfPairingResultsL1$branchLengthEstimation[i] > 
+        dfPairingResultsL2$branchLengthEstimation[i])
 # Then an integer of 1 will be assigned to those in Lineage1 that meet those 
 # criteria. Meeting these criteria is defined as a success.
 successValL1 <- mapply(intersect, lowerLatL1, greaterDistanceL1)
@@ -1862,8 +1904,8 @@ lowerLatL2 <- foreach(i=1:nrow(dfPairingResultsL2)) %do%
   which(dfPairingResultsL2$medianLatAbs.x[i] < 
           dfPairingResultsL1$medianLatAbs.x[i]) 
 greaterDistanceL2 <- foreach(i=1:nrow(dfPairingResultsL2)) %do% 
-  which(dfPairingResultsL2$outGroupDistance[i] > 
-          dfPairingResultsL1$outGroupDistance[i])
+  which(dfPairingResultsL2$branchLengthEstimation[i] > 
+        dfPairingResultsL1$branchLengthEstimation[i])
 successValL2 <- mapply(intersect, lowerLatL2 ,greaterDistanceL2)
 successValL2 <- which(successValL2 > 0) 
 
@@ -1875,39 +1917,40 @@ successOverall <- sort(successOverall)
 # Also making a vector for pairings that were not successes.
 failureOverall <- dfPairingResultsL1$inGroupPairing[-successOverall]
 
-# Can then subset our trueTestOutGroupDist vector containing relative distances 
-# with our successes.
-relativeDistPos <- trueTestOutGroupDist[successOverall]
-# Then subset based on which relative distances were not successes.
-relativeDistNeg <- trueTestOutGroupDist[failureOverall]
+# Can then subset our trueTestOutGroupDist vector containing relative branch 
+# lengths with our successes.
+relativeBranchPos <- trueTestOutGroupDist[successOverall]
+# Then subset based on which relative branch lengths were not successes.
+relativeBranchNeg <- trueTestOutGroupDist[failureOverall]
 # These values will also be assigned a negative value.
-relativeDistNeg <- relativeDistNeg * -1
+relativeBranchNeg <- relativeBranchNeg * -1
 # Also identifying which pairing was positive and which was negative.
-names(relativeDistPos) <- paste0(successOverall)
-names(relativeDistNeg) <- paste0(failureOverall)
+names(relativeBranchPos) <- paste0(successOverall)
+names(relativeBranchNeg) <- paste0(failureOverall)
 
 # Creating a new named vector with positive and negative values appended 
 # together but with pairing numbers as names.
-relativeDistOverall <- append(relativeDistNeg, relativeDistPos)
-# Make relativeDistOverall into a dataframe.
-dfRelativeDist <- data.frame(relativeDistOverall)
-# Adding rownames variable column of dfRelativeDistOverall.
-dfRelativeDist$variable <- rownames(dfRelativeDist)
+relativeBranchOverall <- append(relativeBranchNeg, relativeBranchPos)
+# Make relativeBranchOverall into a dataframe.
+dfRelativeBranchLength <- data.frame(relativeBranchOverall)
+# Adding rownames variable column of dfRelativeBranchLength.
+dfRelativeBranchLength$variable <- rownames(dfRelativeBranchLength)
 # Change to numeric.
-dfRelativeDist$variable <- as.numeric(dfRelativeDist$variable)
+dfRelativeBranchLength$variable <- as.numeric(dfRelativeBranchLength$variable)
 # Order by this column.
-dfRelativeDist <- dfRelativeDist[order(dfRelativeDist$variable), ]
+dfRelativeBranchLength <- 
+  dfRelativeBranchLength[order(dfRelativeBranchLength$variable), ]
 # Adding relative distances to a new column called value.
-colnames(dfRelativeDist)[1] <- "value"
+colnames(dfRelativeBranchLength)[1] <- "value"
 # Creating another value called sign to determine which is positive and which is
 # negative.
-dfRelativeDist[["sign"]] = ifelse(dfRelativeDist[["value"]] >= 0, "positive", 
-                                  "negative")
+dfRelativeBranchLength[["sign"]] = 
+  ifelse(dfRelativeBranchLength[["value"]] >= 0, "positive", "negative")
 
 # Appending relative outgroup distance results to ResultsSummary dataframe and 
 # ResultsL1L2 dataframe.
-dfPairingResultsL1$relativeOutGroupDist <- dfRelativeDist$value
-dfPairingResultsL2$relativeOutGroupDist <- dfRelativeDist$value
+dfPairingResultsL1$relativeBranchLength <- dfRelativeBranchLength$value
+dfPairingResultsL2$relativeBranchLength <- dfRelativeBranchLength$value
 dfPairingResultsL1L2 <- rbind(dfPairingResultsL1, dfPairingResultsL2)
 dfPairingResultsL1L2 <- 
   dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupPairing), ]
@@ -1916,7 +1959,7 @@ dfPairingResultsL1L2 <-
 # a quick idea of pairing results and make the results easier to read. This will
 # include relative outgroup distance.
 dfPairingResultsSummary <- 
-  (dfPairingResultsL1L2[,c("inGroupPairing","relativeOutGroupDist","inGroupBin",
+  (dfPairingResultsL1L2[,c("inGroupPairing","relativeBranchLength","inGroupBin",
                            "inGroupDist","inGroupDistx1.3","outGroupDistance",
                            "outGroupBin","medianLatAbs.x","latDelta","latMin.x",
                            "latMax.x","class_name.x","order_name.x",
@@ -1946,36 +1989,39 @@ dfPairingResultsSummary <-
 
 # Merge RelativeDist dataframe to a pairing results dataframe to grab the class 
 # names so results can be broken down by class.
-dfRelativeDist <- merge(dfRelativeDist, dfPairingResultsL1, 
-                        by.x = "variable", by.y = "inGroupPairing")
-dfRelativeDist <- (dfRelativeDist[,c("variable","value","sign","class_name.x")])
+dfRelativeBranchLength <- merge(dfRelativeBranchLength, dfPairingResultsL1, 
+                                by.x = "variable", by.y = "inGroupPairing")
+dfRelativeBranchLength <- 
+  (dfRelativeBranchLength[,c("variable","value","sign","class_name.x")])
 
 ###################
-# Section 17: PseudoReplicate Relative Outgroup Distance Averaging
-# In this section we average pseudoreplicate relative outgroup distances so they
+# Section 17: PseudoReplicate Relative Branch Length Averaging
+# In this section we average pseudoreplicate relative branch lengths so they
 # can be added to the relative distance results and get included in the 
 # statistics section.
 
 # Again, if at least 1 pseudoreplicate is present in the dfPseudoRep dataframe, 
 # then:
 if (length(pseudoRepMatrixCandidates) > 1) {
-  # First we have to add the signed relative outgroup distances to dfPseudoRep, 
-  # merging dfRelativeDist to do this:
-  dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, 
+  # First we have to add the signed relative branch lengths to dfPseudoRep, 
+  # merging dfRelativeBranchLengths to do this:
+  dfPseudoRep <- merge(dfPseudoRep, dfRelativeBranchLength, 
                        by.x = "pseudoRepPairingNum", by.y = "variable")
-  dfPseudoRep <- merge(dfPseudoRep, dfRelativeDist, 
+  dfPseudoRep <- merge(dfPseudoRep, dfRelativeBranchLength, 
                        by.x = "pseudoRepPairingNum2", by.y = "variable")
   dfPseudoRep <- 
     (dfPseudoRep[,c("pseudoRepPairingNum","value.x",
                     "pseudoRepPairingNum2","value.y","class_name.x.x")])
-  colnames(dfPseudoRep)[2] <- "relativeDist1"
-  colnames(dfPseudoRep)[4] <- "relativeDist2"
+  colnames(dfPseudoRep)[2] <- "relativeBranchLength1"
+  colnames(dfPseudoRep)[4] <- "relativeBranchLength2"
   
   # Also ordering dfPseudoRep.
   dfPseudoRep <- dfPseudoRep[order(dfPseudoRep$pseudoRepPairingNum), ]
   # Rounding.
-  dfPseudoRep$relativeDist1 <- round(dfPseudoRep$relativeDist1, 6)
-  dfPseudoRep$relativeDist2 <- round(dfPseudoRep$relativeDist2, 6)
+  dfPseudoRep$relativeBranchLength1 <- 
+    round(dfPseudoRep$relativeBranchLength1, 6)
+  dfPseudoRep$relativeBranchLength2 <- 
+    round(dfPseudoRep$relativeBranchLength2, 6)
   
   # Now subtracting 1 from positive values and adding one to negative values for 
   # averaging. This is to address an issue where averages of pairings differing 
@@ -1983,21 +2029,25 @@ if (length(pseudoRepMatrixCandidates) > 1) {
   # biologically.
   # RelativeDist1:
   foreach(i=1:nrow(dfPseudoRep)) %do% 
-    if (dfPseudoRep$relativeDist1[i] > 0) {
-      dfPseudoRep$relativeDist1[i] <- dfPseudoRep$relativeDist1[i] - 1
+    if (dfPseudoRep$relativeBranchLength1[i] > 0) {
+      dfPseudoRep$relativeBranchLength1[i] <- 
+        dfPseudoRep$relativeBranchLength1[i] - 1
     }
   foreach(i=1:nrow(dfPseudoRep)) %do% 
-    if (dfPseudoRep$relativeDist1[i] < 0) {
-      dfPseudoRep$relativeDist1[i] <- dfPseudoRep$relativeDist1[i] + 1
+    if (dfPseudoRep$relativeBranchLength1[i] < 0) {
+      dfPseudoRep$relativeBranchLength1[i] <- 
+        dfPseudoRep$relativeBranchLength1[i] + 1
     }
   # RelativeDist2:
   foreach(i=1:nrow(dfPseudoRep)) %do% 
-    if (dfPseudoRep$relativeDist2[i] > 0) {
-      dfPseudoRep$relativeDist2[i] <- dfPseudoRep$relativeDist2[i] - 1
+    if (dfPseudoRep$relativeBranchLength2[i] > 0) {
+      dfPseudoRep$relativeBranchLength2[i] <- 
+        dfPseudoRep$relativeBranchLength2[i] - 1
     }
   foreach(i=1:nrow(dfPseudoRep)) %do% 
-    if (dfPseudoRep$relativeDist2[i] < 0) {
-      dfPseudoRep$relativeDist2[i] <- dfPseudoRep$relativeDist2[i] + 1
+    if (dfPseudoRep$relativeBranchLength2[i] < 0) {
+      dfPseudoRep$relativeBranchLength2[i] <- 
+        dfPseudoRep$relativeBranchLength2[i] + 1
     }
   
   # Breaking pseudoreplicates down to a list.
@@ -2007,30 +2057,33 @@ if (length(pseudoRepMatrixCandidates) > 1) {
   
   # Number of pseudoreplicates per pairing.
   pseudoRepLength <- 
-    sapply( pseudoRepList , function (x) length( x$relativeDist2 ) )
+    sapply( pseudoRepList , function (x) length( x$relativeBranchLength2 ) )
   # Distances and names associated with pseudoreplicates only:
-  pseudoRepRelativeDist2 <- 
-    sapply( pseudoRepList , function (x) ( x$relativeDist2 ) )
-  pseudoRepRelativeDist2Names <- 
+  pseudoRepRelativeBranchLength2 <- 
+    sapply( pseudoRepList , function (x) ( x$relativeBranchLength2 ) )
+  pseudoRepRelativeBranchLength2Names <- 
     sapply( pseudoRepList , function (x) ( x$pseudoRepPairingNum2 ) )
-  pseudoRepRelativeDist2Names <- pseudoRepRelativeDist2Names
+  pseudoRepRelativeBranchLength2Names <- pseudoRepRelativeBranchLength2Names
   # Distances and names associated with ingroup pairings only.
-  pseudoRepRelativeDist1 <- unique(dfPseudoRep$relativeDist1)
-  pseudoRepRelativeDist1Names <- 
+  pseudoRepRelativeBranchLength1 <- unique(dfPseudoRep$relativeBranchLength1)
+  pseudoRepRelativeBranchLength1Names <- 
     sapply( pseudoRepList , function (x) as.character( x$pseudoRepPairingNum ) )
-  pseudoRepRelativeDist1Names <- 
-    sapply( pseudoRepRelativeDist1Names , function (x) unique( x ) )
+  pseudoRepRelativeBranchLength1Names <- 
+    sapply( pseudoRepRelativeBranchLength1Names , function (x) unique( x ) )
   # Append these distances together for averaging using map.
   # Map will append to a list format.
-  pseudoRepAllRelativeDist <- 
-    (Map(c, pseudoRepRelativeDist2, pseudoRepRelativeDist1))
-  pseudoRepAllRelativeDistNames <- 
-    Map(c, pseudoRepRelativeDist2Names, pseudoRepRelativeDist1Names)
-  pseudoRepAllRelativeDistNames <- unname(pseudoRepAllRelativeDistNames)
+  pseudoRepAllRelativeBranchLength <- 
+    (Map(c, pseudoRepRelativeBranchLength2, pseudoRepRelativeBranchLength1))
+  pseudoRepAllRelativeBranchLengthNames <- 
+    Map(c, pseudoRepRelativeBranchLength2Names, 
+        pseudoRepRelativeBranchLength1Names)
+  pseudoRepAllRelativeBranchLengthNames <- 
+    unname(pseudoRepAllRelativeBranchLengthNames)
   
   # Now we can finally average the relative distances based on the values in the 
   # pseudoRepAllRelativeDist list.
-  pseudoRepAverage <- sapply( pseudoRepAllRelativeDist , function(x) mean( x ) )
+  pseudoRepAverage <- 
+    sapply( pseudoRepAllRelativeBranchLength , function(x) mean( x ) )
   
   # Making another dataframe with the averages for the pseudoreplicates called 
   # dfPseudoRepAverage.
@@ -2051,7 +2104,7 @@ if (length(pseudoRepMatrixCandidates) > 1) {
     }
   
   # Adding another column for the pairings associated with each average.
-  dfPseudoRepAverage$variable <- pseudoRepAllRelativeDistNames
+  dfPseudoRepAverage$variable <- pseudoRepAllRelativeBranchLengthNames
   TrimFunction <- function (x) sub("[c(]","", x)
   dfPseudoRepAverage$variable <- TrimFunction(dfPseudoRepAverage$variable)
   colnames(dfPseudoRepAverage)[1] <- "value"
@@ -2064,26 +2117,27 @@ if (length(pseudoRepMatrixCandidates) > 1) {
                               dfPseudoRep$pseudoRepPairingNum2)
   pseudoRepPairings <- pseudoRepPairings[!duplicated(pseudoRepPairings)]
   # Then, subsetting dfRelativeDist based on this.
-  dfRelativeDist <- 
-    dfRelativeDist[setdiff(dfRelativeDist$variable, pseudoRepPairings),]  
+  dfRelativeBranchLength <- 
+    dfRelativeBranchLength[setdiff(dfRelativeBranchLength$variable, 
+                                   pseudoRepPairings),]  
   # Adding class names to dfPseudoRepAverage.
   dfPseudoRepAverage$className <- 
     sapply( pseudoRepList, function(x) unique( x$class_name.x.x ) )
   # Column name change for dfRelativeDist.
-  colnames(dfRelativeDist)[4] <- "className"
+  colnames(dfRelativeBranchLength)[4] <- "className"
   # Now dfPseudoRepAverage will be appended to the relativeDist dataframe.
-  dfRelativeDist <- rbind(dfRelativeDist,dfPseudoRepAverage)
+  dfRelativeBranchLength <- rbind(dfRelativeBranchLength,dfPseudoRepAverage)
 } else {
   # Column name change for dfRelativeDist.
-  colnames(dfRelativeDist)[4] <- "className"
+  colnames(dfRelativeBranchLength)[4] <- "className"
 }
-
+           
 ###################
 # Section 18: Statistical Analysis of Pairings
 
 # In this section we are performing Binomial Tests and Wilcoxon Tests on the 
-# relative distance results of the pairings to investigate the hypothesis of 
-# higher rates of molecular evolution at lower latitudes.
+# relative branch length results of the pairings to investigate the hypothesis 
+# of higher rates of molecular evolution at lower latitudes.
 
 # Performing a binomial test on our pairings to test to see if pairings with 
 # lower latitude AND greater outgroup distance are more prevalent than the null 
@@ -2092,20 +2146,21 @@ if (length(pseudoRepMatrixCandidates) > 1) {
 # outgroup dist pairings.
 
 # Binomial test on relative outgroup distances for sister pairs.
-# Number of successes defined as number of positive values in the dfRelativeDist
-# dataframe:
-successOverall <- length(which(dfRelativeDist$sign == "positive"))
+# Number of successes defined as number of positive values in the 
+# dfRelativeBranchLength dataframe:
+successOverall <- length(which(dfRelativeBranchLength$sign == "positive"))
 # Total number of trials is number of rows of dfRelativeDist dataframe.
 # Null expectation set to 50%.
 
 # Binomial test for all classes.
-binomialTestOutGroup <- binom.test(successOverall, nrow(dfRelativeDist), p= 0.5)
+binomialTestOutGroup <- 
+  binom.test(successOverall, nrow(dfRelativeBranchLength), p= 0.5)
 
 # Binomial test for each class separately.
 
 # Break relative outgroup distances down by class.
-classBinomList <- lapply(unique(dfRelativeDist$className), function(x) 
-  dfRelativeDist[dfRelativeDist$className == x,])
+classBinomList <- lapply(unique(dfRelativeBranchLength$className), function(x) 
+  dfRelativeBranchLength[dfRelativeBranchLength$className == x,])
 
 # Total number of observations for each class.
 classNumObservations <- foreach(i=1:length(classBinomList)) %do% 
@@ -2138,14 +2193,14 @@ dfPVal$pValueBinomial <- round(as.numeric(pValBinomial), digits = 6)
 
 # Wilcoxon Test
 
-# Next we do a Wilcoxon test on all of the signed relative distances 
+# Next we do a Wilcoxon test on all of the signed relative branch length
 # (pos or neg) from the value column of the relativeDist dataframe to compare 
 # the median for a significant difference from the null expectation of zero.
 # This test will consider both the magnitude and direction but is also 
 # non-parametric.
 
 # Wilcoxon test for all classes together.
-wilcoxTestOutGroup <- wilcox.test(dfRelativeDist$value, mu=0)
+wilcoxTestOutGroup <- wilcox.test(dfRelativeBranchLength$value, mu=0)
 
 # Wilcoxon test for each class separately:
 
@@ -2165,28 +2220,29 @@ pValWilcoxonTotal <- append(pvalWilcoxon, pvalWilcoxonClass)
 
 # Addition of Wilcoxon p-values to dfPVal dataframe.
 dfPVal$pValueWilcoxon <- round(as.numeric(pValWilcoxonTotal), digits = 6)
-
+  
 ###################
-# Section 19: Plotting of Relative Outgroup Distance Results
+# Section 19: Plotting of Relative Branch Length Results
 
-# In this section, we do plotting of our relative distances based on pairing 
-# number. Points will plot red if the value is below 0 (meaning not a success) 
-# and blue if above 0 (success!).
+# In this section, we do plotting of our relative branch lengths based on 
+# pairing number. Points will plot red if the value is below 0 
+# (meaning not a success) and blue if above 0 (success!).
 
-# Make the variable column a factor for dfRealtiveDistOverall so ggplot classes 
-# pairings correctly.
-dfRelativeDist$variable <- factor(dfRelativeDist$variable, 
-                                  levels = dfRelativeDist$variable)
+# Make the variable column a factor for dfRealtiveBranchLengthOverall so 
+# ggplot classes pairings correctly.
+dfRelativeBranchLength$variable <- factor(dfRelativeBranchLength$variable, 
+                                   levels = dfRelativeBranchLength$variable)
 
 # Breaking dfRelativeDist down to a list by class so plots can be generated 
 # according to class.
-relativeDistClass <- lapply(unique(dfRelativeDist$className), function(x) 
-  dfRelativeDist[dfRelativeDist$className == x,])
+relativeBranchLengthClass <- 
+  lapply(unique(dfRelativeBranchLength$className), function(x) 
+  dfRelativeBranchLength[dfRelativeBranchLength$className == x,])
 
 # Variables for the title of each plot; this will include name of the class and 
 # associated p-values.
 classTitle <- foreach(i=1:length(classNames1)) %do% 
-  paste("Relative Outgroup Distances of Each Pairing of", classNames1[i])
+  paste("Signed Relative Branch Lengths of Each Pairing of", classNames1[i])
 pValBinomialTitle <- foreach(i=1:length(pvalBinomialClass)) %do%
   paste("Binomial Test p-value:", round(pvalBinomialClass[[i]], digits = 6))
 pvalWilcoxonTitle <- foreach(i=1:length(pvalBinomialClass)) %do%
@@ -2196,8 +2252,8 @@ pvalWilcoxonTitle <- foreach(i=1:length(pvalBinomialClass)) %do%
 
 # Separate plots will be generated for each class.
 
-foreach(i = 1:length(relativeDistClass)) %do%
-  (print(ggplot(relativeDistClass[[i]], aes(x = variable, y = value, 
+foreach(i = 1:length(relativeBranchLengthClass)) %do%
+  (print(ggplot(relativeBranchLengthClass[[i]], aes(x = variable, y = value, 
                                             color = sign))
          + geom_point(stat = "identity", size = 2.5)
          + theme(
@@ -2217,7 +2273,7 @@ foreach(i = 1:length(relativeDistClass)) %do%
              pvalWilcoxonTitle[i]
            )
          )
-         + labs(x = "Pairing Number", y = "Signed Relative OutGroup Distance", 
+         + labs(x = "Pairing Number", y = "Signed Relative Branch Length", 
                 color = "sign")
   ))
 
