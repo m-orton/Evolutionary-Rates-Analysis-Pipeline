@@ -259,6 +259,9 @@ library(jsonlite)
 # plotly package used for map plotting functionality.
 # install.packages("plotly")
 library(plotly)
+# Excel writer for output of results to an excel file
+# install.packages("xlsx")
+library(xlsx)
 
 #################
 # R Commands:
@@ -2339,6 +2342,25 @@ dfPVal$pValueWilcoxonAlt <- round(as.numeric(pValWilcoxonTotalAlt), digits = 6)
 
 #Change of first column for pvalue dataframe
 colnames(dfPVal)[1] <- "className"
+
+# Can output all results including pariring results, pseudoreplicates, branch lengths
+# and pvalues all to an excel file by using the following commands, the file
+# will output in the current working directory of R
+
+uniqueClassName <- unique(dfPairingResultsSummary$inGroupClass)
+if (length(uniqueClassName)>1){
+  className <- paste(uniqueClassName, collapse = ',')
+} else {
+  className <- uniqueClassName
+}
+
+date <- Sys.Date() 
+
+excelFileName <- paste("pairingResults",className,date,".xlsx",sep="")
+write.xlsx(dfPairingResultsSummary, file=excelFileName, sheetName="PairingResultsSummary")
+write.xlsx(dfRelativeBranchLength, file=excelFileName, sheetName="RelativeBranchLength", append=TRUE)
+write.xlsx(dfPseudoRepAverage, file=excelFileName, sheetName="Pseudoreplicates", append=TRUE)
+write.xlsx(dfPVal, file=excelFileName, sheetName="pValues", append=TRUE)
 
 ###################
 # Section 19: Plotting of Signed Relative Branch Length Results 
