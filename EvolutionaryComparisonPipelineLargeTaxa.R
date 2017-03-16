@@ -1864,7 +1864,7 @@ testOutGroupDist <- as.numeric(dfPairingResultsL1L2$branchLengthEstimation)
 
 # Stored as a vector.
 # Set trueTestOutGroupDist to null to ensure empty variable.
-trueTestOutGroupDist<-NULL
+trueTestOutGroupDist <- NULL
 # Counter for trueTestOutGroupDist
 x = 1
 # For loop that increments by 2 to divide adjacent outgroup distances found in
@@ -1947,10 +1947,31 @@ colnames(dfRelativeBranchLength)[1] <- "value"
 dfRelativeBranchLength[["sign"]] = 
   ifelse(dfRelativeBranchLength[["value"]] >= 0, "positive", "negative")
 
-# Appending relative outgroup distance results to ResultsSummary dataframe and 
-# ResultsL1L2 dataframe.
+# Appending relative branch length results to L1 and L2 dataframes and the
+# L1L2 dataframe.
 dfPairingResultsL1$relativeBranchLength <- dfRelativeBranchLength$value
 dfPairingResultsL2$relativeBranchLength <- dfRelativeBranchLength$value
+dfPairingResultsL1L2 <- rbind(dfPairingResultsL1, dfPairingResultsL2)
+dfPairingResultsL1L2 <- 
+  dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupPairing), ]
+
+# Now doing alternative branch length ratios - lower latitude branch length over
+# higher latitude branch length
+foreach(i=1:nrow(dfPairingResultsL1)) %do% 
+if (dfPairingResultsL1$medianLatAbs.x[i] < dfPairingResultsL2$medianLatAbs.x[i]) {
+  dfPairingResultsL1$altRelativeBranchLength[i] <-
+    dfPairingResultsL1$branchLengthEstimation[i] / 
+    dfPairingResultsL2$branchLengthEstimation[i] 
+} else if (dfPairingResultsL2$medianLatAbs.x[i] < dfPairingResultsL1$medianLatAbs.x[i]) {
+  dfPairingResultsL1$altRelativeBranchLength[i] <-
+    dfPairingResultsL2$branchLengthEstimation[i] / 
+    dfPairingResultsL1$branchLengthEstimation[i] 
+}
+
+# Applying this value to the L2 dataframe as well
+dfPairingResultsL2$altRelativeBranchLength <- 
+  dfPairingResultsL1$altRelativeBranchLength
+# Rebuilding L1L2 from L1 and L2
 dfPairingResultsL1L2 <- rbind(dfPairingResultsL1, dfPairingResultsL2)
 dfPairingResultsL1L2 <- 
   dfPairingResultsL1L2[order(dfPairingResultsL1L2$inGroupPairing), ]
@@ -1959,30 +1980,32 @@ dfPairingResultsL1L2 <-
 # a quick idea of pairing results and make the results easier to read. This will
 # include relative outgroup distance.
 dfPairingResultsSummary <- 
-  (dfPairingResultsL1L2[,c("inGroupPairing","relativeBranchLength","inGroupBin",
-                           "inGroupDist","inGroupDistx1.3","outGroupDistance",
-                           "outGroupBin","medianLatAbs.x","latDelta","latMin.x",
-                           "latMax.x","class_name.x","order_name.x",
-                           "family_name.x","genus_name.x","species_name.x",
-                           "trimmedNucleotides.x","class_name.x","order_name.y",
-                           "family_name.y","genus_name.y","species_name.y",
+  (dfPairingResultsL1L2[,c("inGroupPairing","branchLengthEstimation",
+                           "relativeBranchLength","altRelativeBranchLength",
+                           "inGroupBin","inGroupDist","inGroupDistx1.3",
+                           "outGroupDistance","outGroupBin","medianLatAbs.x",
+                           "latDelta","latMin.x","latMax.x","class_name.x",
+                           "order_name.x","family_name.x","genus_name.x",
+                           "species_name.x","trimmedNucleotides.x",
+                           "class_name.x","order_name.y","family_name.y",
+                           "genus_name.y","species_name.y",
                            "trimmedNucleotides.y","pairingKey")])
-colnames(dfPairingResultsSummary)[8] <- "inGroupMedianLatAbs"
-colnames(dfPairingResultsSummary)[10] <- "inGroupMinLat"
-colnames(dfPairingResultsSummary)[11] <- "inGroupMaxLat"
-colnames(dfPairingResultsSummary)[12] <- "inGroupClass"
-colnames(dfPairingResultsSummary)[13] <- "inGroupOrder"
-colnames(dfPairingResultsSummary)[14] <- "inGroupFamily"
-colnames(dfPairingResultsSummary)[15] <- "inGroupGenus"
-colnames(dfPairingResultsSummary)[16] <- "inGroupSpecies"
-colnames(dfPairingResultsSummary)[17] <- "inGroupNucleotides"
-colnames(dfPairingResultsSummary)[18] <- "outGroupClass"
-colnames(dfPairingResultsSummary)[19] <- "outGroupOrder"
-colnames(dfPairingResultsSummary)[20] <- "outGroupFamily"
-colnames(dfPairingResultsSummary)[21] <- "outGroupGenus"
-colnames(dfPairingResultsSummary)[22] <- "outGroupSpecies"
-colnames(dfPairingResultsSummary)[23] <- "outGroupNucleotides"
-colnames(dfPairingResultsSummary)[24] <- "pairingKey"
+colnames(dfPairingResultsSummary)[10] <- "inGroupMedianLatAbs"
+colnames(dfPairingResultsSummary)[12] <- "inGroupMinLat"
+colnames(dfPairingResultsSummary)[13] <- "inGroupMaxLat"
+colnames(dfPairingResultsSummary)[14] <- "inGroupClass"
+colnames(dfPairingResultsSummary)[15] <- "inGroupOrder"
+colnames(dfPairingResultsSummary)[16] <- "inGroupFamily"
+colnames(dfPairingResultsSummary)[17] <- "inGroupGenus"
+colnames(dfPairingResultsSummary)[18] <- "inGroupSpecies"
+colnames(dfPairingResultsSummary)[19] <- "inGroupNucleotides"
+colnames(dfPairingResultsSummary)[20] <- "outGroupClass"
+colnames(dfPairingResultsSummary)[21] <- "outGroupOrder"
+colnames(dfPairingResultsSummary)[22] <- "outGroupFamily"
+colnames(dfPairingResultsSummary)[23] <- "outGroupGenus"
+colnames(dfPairingResultsSummary)[24] <- "outGroupSpecies"
+colnames(dfPairingResultsSummary)[25] <- "outGroupNucleotides"
+colnames(dfPairingResultsSummary)[26] <- "pairingKey"
 # Reordering.
 dfPairingResultsSummary <- 
   dfPairingResultsSummary[order(dfPairingResultsSummary$inGroupPairing),]
@@ -1991,8 +2014,12 @@ dfPairingResultsSummary <-
 # names so results can be broken down by class.
 dfRelativeBranchLength <- merge(dfRelativeBranchLength, dfPairingResultsL1, 
                                 by.x = "variable", by.y = "inGroupPairing")
+
+dfRelativeBranchLength$value2 <- 
+  dfPairingResultsL1$altRelativeBranchLength
+
 dfRelativeBranchLength <- 
-  (dfRelativeBranchLength[,c("variable","value","sign","class_name.x")])
+  (dfRelativeBranchLength[,c("variable","value","value2","sign","class_name.x")])
 
 ###################
 # Section 17: PseudoReplicate Relative Branch Length Averaging
@@ -2010,24 +2037,31 @@ if (length(pseudoRepMatrixCandidates) > 1) {
   dfPseudoRep <- merge(dfPseudoRep, dfRelativeBranchLength, 
                        by.x = "pseudoRepPairingNum2", by.y = "variable")
   dfPseudoRep <- 
-    (dfPseudoRep[,c("pseudoRepPairingNum","value.x",
-                    "pseudoRepPairingNum2","value.y","class_name.x.x")])
+    (dfPseudoRep[,c("pseudoRepPairingNum","value.x","value2.x",
+                    "pseudoRepPairingNum2","value.y","value2.y",
+                    "class_name.x.x")])
   colnames(dfPseudoRep)[2] <- "relativeBranchLength1"
-  colnames(dfPseudoRep)[4] <- "relativeBranchLength2"
+  colnames(dfPseudoRep)[3] <- "altRelativeBranchLength1"
+  colnames(dfPseudoRep)[5] <- "relativeBranchLength2"
+  colnames(dfPseudoRep)[6] <- "altRelativeBranchLength2"
   
   # Also ordering dfPseudoRep.
   dfPseudoRep <- dfPseudoRep[order(dfPseudoRep$pseudoRepPairingNum), ]
   # Rounding.
   dfPseudoRep$relativeBranchLength1 <- 
     round(dfPseudoRep$relativeBranchLength1, 6)
+  dfPseudoRep$altRelativeBranchLength1 <- 
+    round(dfPseudoRep$altRelativeBranchLength1, 6)
   dfPseudoRep$relativeBranchLength2 <- 
     round(dfPseudoRep$relativeBranchLength2, 6)
+  dfPseudoRep$altRelativeBranchLength2 <- 
+    round(dfPseudoRep$altRelativeBranchLength2, 6)
   
   # Now subtracting 1 from positive values and adding one to negative values for 
   # averaging. This is to address an issue where averages of pairings differing 
   # in sign were producing decimal results that were difficult to interpret 
   # biologically.
-  # RelativeDist1:
+  # RelativeBranchLength1:
   foreach(i=1:nrow(dfPseudoRep)) %do% 
     if (dfPseudoRep$relativeBranchLength1[i] > 0) {
       dfPseudoRep$relativeBranchLength1[i] <- 
@@ -2038,7 +2072,7 @@ if (length(pseudoRepMatrixCandidates) > 1) {
       dfPseudoRep$relativeBranchLength1[i] <- 
         dfPseudoRep$relativeBranchLength1[i] + 1
     }
-  # RelativeDist2:
+  # RelativeBranchLength2:
   foreach(i=1:nrow(dfPseudoRep)) %do% 
     if (dfPseudoRep$relativeBranchLength2[i] > 0) {
       dfPseudoRep$relativeBranchLength2[i] <- 
@@ -2061,11 +2095,15 @@ if (length(pseudoRepMatrixCandidates) > 1) {
   # Distances and names associated with pseudoreplicates only:
   pseudoRepRelativeBranchLength2 <- 
     sapply( pseudoRepList , function (x) ( x$relativeBranchLength2 ) )
+  pseudoRepAltRelativeBranchLength2 <- 
+    sapply( pseudoRepList , function (x) ( x$AltRelativeBranchLength2 ) )
   pseudoRepRelativeBranchLength2Names <- 
     sapply( pseudoRepList , function (x) ( x$pseudoRepPairingNum2 ) )
   pseudoRepRelativeBranchLength2Names <- pseudoRepRelativeBranchLength2Names
   # Distances and names associated with ingroup pairings only.
   pseudoRepRelativeBranchLength1 <- unique(dfPseudoRep$relativeBranchLength1)
+  pseudoRepAltRelativeBranchLength1 <- 
+    unique(dfPseudoRep$altRelativeBranchLength1)
   pseudoRepRelativeBranchLength1Names <- 
     sapply( pseudoRepList , function (x) as.character( x$pseudoRepPairingNum ) )
   pseudoRepRelativeBranchLength1Names <- 
@@ -2074,23 +2112,29 @@ if (length(pseudoRepMatrixCandidates) > 1) {
   # Map will append to a list format.
   pseudoRepAllRelativeBranchLength <- 
     (Map(c, pseudoRepRelativeBranchLength2, pseudoRepRelativeBranchLength1))
+  pseudoRepAllAltRelativeBranchLength <-
+    (Map(c, pseudoRepAltRelativeBranchLength2, pseudoRepAltRelativeBranchLength1))
   pseudoRepAllRelativeBranchLengthNames <- 
     Map(c, pseudoRepRelativeBranchLength2Names, 
         pseudoRepRelativeBranchLength1Names)
   pseudoRepAllRelativeBranchLengthNames <- 
     unname(pseudoRepAllRelativeBranchLengthNames)
   
-  # Now we can finally average the relative distances based on the values in the 
-  # pseudoRepAllRelativeDist list.
+  # Now we can finally average the relative branch lengths based on the values 
+  # in the pseudoRepAllRelativeDist list.
   pseudoRepAverage <- 
     sapply( pseudoRepAllRelativeBranchLength , function(x) mean( x ) )
+  pseudoRepAverage2 <- 
+    sapply( pseudoRepAllAltRelativeBranchLength , function(x) mean( x ) )
   
   # Making another dataframe with the averages for the pseudoreplicates called 
   # dfPseudoRepAverage.
   dfPseudoRepAverage <- data.frame(pseudoRepAverage)
   
-  # Now subtracting 1 if negative or adding 1 if positive to averages.
-  # Once again this will ensure that all pseudoreplicate average values are 
+  # Now subtracting 1 if negative or adding 1 if positive to averages of 
+  # signed relative branch lengths.
+  # Once again this will ensure that all pseudoreplicate average values of 
+  # signed branch lengths are 
   # above 1 or below -1.
   foreach(i=1:nrow(dfPseudoRepAverage)) %do% 
     if (dfPseudoRepAverage$pseudoRepAverage[i] < 0) {
@@ -2103,35 +2147,45 @@ if (length(pseudoRepMatrixCandidates) > 1) {
         dfPseudoRepAverage$pseudoRepAverage[i] + 1
     }
   
+  # Adding the alt relative branch lengths to the do the dfPseudoRepAverage
+  # dataframe
+  dfPseudoRepAverage$pseudoRepAverage2 <- pseudoRepAverage2
+  
   # Adding another column for the pairings associated with each average.
   dfPseudoRepAverage$variable <- pseudoRepAllRelativeBranchLengthNames
   TrimFunction <- function (x) sub("[c(]","", x)
   dfPseudoRepAverage$variable <- TrimFunction(dfPseudoRepAverage$variable)
-  colnames(dfPseudoRepAverage)[1] <- "value"
+  colnames(dfPseudoRepAverage)[1] <- "relativeBranchLength"
+  colnames(dfPseudoRepAverage)[2] <- "altRelativeBranchLength"
   # Also adding the signs of each average for plotting later on.
-  dfPseudoRepAverage[["sign"]] = ifelse(dfPseudoRepAverage[["value"]] >= 0, 
-                                        "positive", "negative")
-  # Now let's subset dfRelativeDist to remove pairings that were averaged.
-  # First, making a vector with all pairings averaged.
+  dfPseudoRepAverage[["sign"]] = 
+    ifelse(dfPseudoRepAverage[["relativeBranchLength"]] >= 0,
+    "positive", "negative")
+  # Now let's subset dfRelativeBranchLength to remove pairings that were 
+  # averaged. First, making a vector with all pairings averaged.
   pseudoRepPairings <- append(dfPseudoRep$pseudoRepPairingNum, 
                               dfPseudoRep$pseudoRepPairingNum2)
   pseudoRepPairings <- pseudoRepPairings[!duplicated(pseudoRepPairings)]
-  # Then, subsetting dfRelativeDist based on this.
+  # Then, subsetting dfRelativeBranchLength based on this.
   dfRelativeBranchLength <- 
     dfRelativeBranchLength[setdiff(dfRelativeBranchLength$variable, 
                                    pseudoRepPairings),]  
   # Adding class names to dfPseudoRepAverage.
   dfPseudoRepAverage$className <- 
     sapply( pseudoRepList, function(x) unique( x$class_name.x.x ) )
-  # Column name change for dfRelativeDist.
-  colnames(dfRelativeBranchLength)[4] <- "className"
-  # Now dfPseudoRepAverage will be appended to the relativeDist dataframe.
+  # Column name change for dfRelativeBranchLength.
+  colnames(dfRelativeBranchLength)[5] <- "className"
+  # Column name change for values columns
+  colnames(dfRelativeBranchLength)[2] <- "relativeBranchLength"
+  colnames(dfRelativeBranchLength)[3] <- "altRelativeBranchLength"
+  # Now dfPseudoRepAverage will be appended to the RelativeBranchLength 
+  # dataframe.
   dfRelativeBranchLength <- rbind(dfRelativeBranchLength,dfPseudoRepAverage)
 } else {
-  # Column name change for dfRelativeDist.
+  # Column name change for dfRelativeBranchLength.
   colnames(dfRelativeBranchLength)[4] <- "className"
 }
-           
+
 ###################
 # Section 18: Statistical Analysis of Pairings
 
@@ -2151,6 +2205,9 @@ if (length(pseudoRepMatrixCandidates) > 1) {
 successOverall <- length(which(dfRelativeBranchLength$sign == "positive"))
 # Total number of trials is number of rows of dfRelativeDist dataframe.
 # Null expectation set to 50%.
+
+# Also calculating number of non-successes
+failureOverall <- length(which(dfRelativeBranchLength$sign == "negative"))
 
 # Binomial test for all classes.
 binomialTestOutGroup <- 
@@ -2181,6 +2238,15 @@ pvalBinomialTotal <- binomialTestOutGroup$p.value
 pvalBinomialClass <- foreach(i=1:length(classBinomList)) %do% 
   binomClass[[i]]$p.value
 
+# Number of positive and negative values for each class.
+posClass <- foreach(i=1:length(classBinomList)) %do% 
+  length(which(classBinomList[[i]]$sign == "positive"))
+negClass <- foreach(i=1:length(classBinomList)) %do% 
+  length(which(classBinomList[[i]]$sign == "negative"))
+# Appending totals of all classes with individual classes for pos and neg
+posAll <- append(successOverall, posClass)
+negAll <- append(failureOverall, negClass)
+
 # Creation of a dataframe for p-values.
 allClassVariable <- "AllClasses"
 classNames1 <- foreach(i=1:length(classBinomList)) %do% 
@@ -2190,8 +2256,22 @@ classNames2 <- append(allClassVariable, classNames1)
 pValBinomial <- append(pvalBinomialTotal, pvalBinomialClass)
 dfPVal <- data.frame(classNames2)
 dfPVal$pValueBinomial <- round(as.numeric(pValBinomial), digits = 6)
+# Adding pos and neg values to pVal dataframe
+dfPVal$positiveValues <- posAll
+dfPVal$negativeValues <- negAll
 
-# Wilcoxon Test
+# Finding the median value for signed relative branch length for all classes
+medianSignedBranchLength <- median(dfRelativeBranchLength$relativeBranchLength)
+# Finding median for signed branch length for each class
+medianSignedBranchLengthClass <- foreach(i=1:length(classBinomList)) %do% 
+  median(classBinomList[[i]]$relativeBranchLength)
+medianSignedBranchLengthClass <- unlist(medianSignedBranchLengthClass)
+medianSignedAll <- append(medianSignedBranchLength, medianSignedBranchLengthClass)
+
+# Adding median signed ratios to the pValue dataframe
+dfPVal$medianSignedRatio <- medianSignedAll
+
+# Wilcoxon Test on Signed Relative Branch Lengths
 
 # Next we do a Wilcoxon test on all of the signed relative branch length
 # (pos or neg) from the value column of the relativeDist dataframe to compare 
@@ -2200,13 +2280,14 @@ dfPVal$pValueBinomial <- round(as.numeric(pValBinomial), digits = 6)
 # non-parametric.
 
 # Wilcoxon test for all classes together.
-wilcoxTestOutGroup <- wilcox.test(dfRelativeBranchLength$value, mu=0)
+wilcoxTestOutGroup <- 
+  wilcox.test(dfRelativeBranchLength$relativeBranchLength, mu=0)
 
 # Wilcoxon test for each class separately:
 
 # Relative outgroup values for each class to be fed into test.
 classValue <-  foreach(i=1:length(classBinomList)) %do% 
-  (classBinomList[[i]]$value)
+  (classBinomList[[i]]$relativeBranchLength)
 
 # Wilcoxon test for each class.
 wilcoxonClass <- foreach(i=1:length(classValue)) %do% 
@@ -2220,24 +2301,64 @@ pValWilcoxonTotal <- append(pvalWilcoxon, pvalWilcoxonClass)
 
 # Addition of Wilcoxon p-values to dfPVal dataframe.
 dfPVal$pValueWilcoxon <- round(as.numeric(pValWilcoxonTotal), digits = 6)
-  
+
+# Wilcoxon Test on Alt Relative Branch Lengths (low lat / high lat)
+
+# Finding the median value for alt relative branch length for all classes
+medianAltBranchLength <- median(dfRelativeBranchLength$altRelativeBranchLength)
+# Finding median for alt branch length for each class
+medianAltBranchLengthClass <- foreach(i=1:length(classBinomList)) %do% 
+  median(classBinomList[[i]]$altRelativeBranchLength)
+medianAltBranchLengthClass <- unlist(medianAltBranchLengthClass)
+medianAltAll <- append(medianAltBranchLength, medianAltBranchLengthClass)
+# Adding median signed ratios to the pValue dataframe
+dfPVal$medianAltRatio <- medianAltAll
+
+# Wilcoxon test for all classes together.
+wilcoxTestOutGroup <- 
+  wilcox.test(dfRelativeBranchLength$altRelativeBranchLength, mu=1)
+
+# Wilcoxon test for each class separately:
+
+# Relative outgroup values for each class to be fed into test.
+classValue <-  foreach(i=1:length(classBinomList)) %do% 
+  (classBinomList[[i]]$altRelativeBranchLength)
+
+# Wilcoxon test for each class.
+wilcoxonClass <- foreach(i=1:length(classValue)) %do% 
+  wilcox.test(classValue[[i]], mu=1) 
+
+# p-value extraction for Wilcoxon test.
+pvalWilcoxonAlt <- wilcoxTestOutGroup$p.value
+pvalWilcoxonClassAlt <- foreach(i=1:length(wilcoxonClass)) %do% 
+  (wilcoxonClass[[i]]$p.value)
+pValWilcoxonTotalAlt <- append(pvalWilcoxonAlt, pvalWilcoxonClassAlt)
+
+# Addition of Wilcoxon p-values to dfPVal dataframe.
+dfPVal$pValueWilcoxonAlt <- round(as.numeric(pValWilcoxonTotalAlt), digits = 6)
+
+#Change of first column for pvalue dataframe
+colnames(dfPVal)[1] <- "className"
+
 ###################
-# Section 19: Plotting of Relative Branch Length Results
+# Section 19: Plotting of Signed Relative Branch Length Results 
 
 # In this section, we do plotting of our relative branch lengths based on 
 # pairing number. Points will plot red if the value is below 0 
 # (meaning not a success) and blue if above 0 (success!).
 
-# Make the variable column a factor for dfRealtiveBranchLengthOverall so 
+# Changing back column names to value
+colnames(dfRelativeBranchLength)[2] <- "value"
+
+# Make the variable column a factor for dfRelativeBranchLength so 
 # ggplot classes pairings correctly.
 dfRelativeBranchLength$variable <- factor(dfRelativeBranchLength$variable, 
-                                   levels = dfRelativeBranchLength$variable)
+  levels = dfRelativeBranchLength$variable)
 
 # Breaking dfRelativeDist down to a list by class so plots can be generated 
 # according to class.
-relativeBranchLengthClass <- 
-  lapply(unique(dfRelativeBranchLength$className), function(x) 
-  dfRelativeBranchLength[dfRelativeBranchLength$className == x,])
+relativeBranchLengthClass <- lapply(unique(dfRelativeBranchLength$className), function(x) 
+    dfRelativeBranchLength[dfRelativeBranchLength$className == x,])
 
 # Variables for the title of each plot; this will include name of the class and 
 # associated p-values.
@@ -2254,7 +2375,7 @@ pvalWilcoxonTitle <- foreach(i=1:length(pvalBinomialClass)) %do%
 
 foreach(i = 1:length(relativeBranchLengthClass)) %do%
   (print(ggplot(relativeBranchLengthClass[[i]], aes(x = variable, y = value, 
-                                            color = sign))
+                                                    color = sign))
          + geom_point(stat = "identity", size = 2.5)
          + theme(
            text = element_text(size = 13),
@@ -2289,6 +2410,7 @@ foreach(i = 1:length(relativeBranchLengthClass)) %do%
 # If "Error in .Call.graphics(C_palette2, .Call(C_palette2, NULL)) 
 # : invalid graphics state" message appears, use this command:
 # dev.off()
+
 
 ###################
 # Section 20: Map Plotting of Latitude Separated Pairings using Plotly
