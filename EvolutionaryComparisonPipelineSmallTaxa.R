@@ -1495,11 +1495,13 @@ dfPairingResultsL1L2 <-
    
 # Filtering out pairings with less than 2% divergence of ingroup distance.
 twoPercentCheck1 <- which(dfPairingResultsL1L2$inGroupDist < 0.02)
-dfPairingResultsL1L2 <- dfPairingResultsL1L2[-twoPercentCheck1,]
-twoPercentCheck2 <- which(dfPairingResultsL1$inGroupDist < 0.02)
-dfPairingResultsL1 <- dfPairingResultsL1[-twoPercentCheck2,]
-twoPercentCheck3 <- which(dfPairingResultsL2$inGroupDist < 0.02)
-dfPairingResultsL2 <- dfPairingResultsL2[-twoPercentCheck3,]
+if (length(twoPercentCheck1) > 0) {
+   dfPairingResultsL1L2 <- dfPairingResultsL1L2[-twoPercentCheck1,]
+   twoPercentCheck2 <- which(dfPairingResultsL1$inGroupDist < 0.02)
+   dfPairingResultsL1 <- dfPairingResultsL1[-twoPercentCheck2,]
+   twoPercentCheck3 <- which(dfPairingResultsL2$inGroupDist < 0.02)
+   dfPairingResultsL2 <- dfPairingResultsL2[-twoPercentCheck3,]
+}
 
 # Order and renumber pairings starting at 1 according to pairingKey.
 dfPairingResultsL1L2 <- 
