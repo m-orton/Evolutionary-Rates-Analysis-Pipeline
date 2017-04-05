@@ -516,7 +516,7 @@ if (length(largeBin) > 0) {
   # ***For larger taxa, it is highly recommended to use a maxiter 
   # setting of 2 to reduce alignment times.***
   alignment1 <- foreach(i=1:binNumberCentroid) %do% 
-    muscle(dnaStringSet1[[i]], maxiters = 2, diags = TRUE, gapopen = -3000)
+    muscle::muscle(dnaStringSet1[[i]], maxiters = 2, diags = TRUE, gapopen = -3000)
   
   # We can then convert each alignment to DNAbin format.
   dnaBINCentroid <- 
