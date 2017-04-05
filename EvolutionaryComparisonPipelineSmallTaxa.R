@@ -509,7 +509,7 @@ if (length(largeBin) > 0) {
   # Run a multiple sequence alignment on each element of the dnaStringSet1 list
   # Using diags = TRUE with Muscle command to speed up alignment of each BIN.
   alignment1 <- foreach(i=1:binNumberCentroid) %do% 
-    muscle(dnaStringSet1[[i]], maxiters = 3, diags = TRUE, gapopen = -3000)
+    muscle::muscle(dnaStringSet1[[i]], maxiters = 3, diags = TRUE, gapopen = -3000)
   
   # We can then convert each alignment to DNAbin format.
   dnaBINCentroid <- 
