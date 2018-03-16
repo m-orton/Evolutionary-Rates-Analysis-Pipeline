@@ -1,3 +1,13 @@
+library(ape)
+library(Biostrings) 
+library(plotly)
+library(foreach)
+
+# Renaming columns
+colnames(dfL1L2TempArthropoda)[14] <- "L1"
+colnames(dfL1L2TempArthropoda)[15] <- "L2"
+colnames(dfL1L2TempArthropoda)[16] <- "Outgroup"
+
 # 2nd codon position - using regular expressions and taking every 3rd nucleotide char, 2nd codon = 1st position in aligned sequences
 dfL1L2TempArthropoda$L1_2nd <- gsub("(.)..", "\\1", dfL1L2TempArthropoda$L1) 
 dfL1L2TempArthropoda$L2_2nd <- gsub("(.)..", "\\1", dfL1L2TempArthropoda$L2) 
